@@ -1,0 +1,203 @@
+import { useState, useEffect, useCallback } from "react";
+import { ethers } from "ethers";
+import { JsonRpcSigner } from "ethers";
+import SWAP_ROUTER_ABI from "../abis/SwapRouter.json";
+
+// Types
+type ExactInputSingleParams = {
+  tokenIn: string;
+  tokenOut: string;
+  fee: number;
+  recipient: string;
+  deadline: number;
+  amountIn: bigint;
+  amountOutMinimum: bigint;
+  sqrtPriceLimitX96?: bigint;
+};
+
+type ExactInputParams = {
+  path: string;
+  recipient: string;
+  deadline: number;
+  amountIn: bigint;
+  amountOutMinimum: bigint;
+};
+
+type ExactOutputSingleParams = {
+  tokenIn: string;
+  tokenOut: string;
+  fee: number;
+  recipient: string;
+  deadline: number;
+  amountOut: bigint;
+  amountInMaximum: bigint;
+  sqrtPriceLimitX96?: bigint;
+};
+
+type ExactOutputParams = {
+  path: string;
+  recipient: string;
+  deadline: number;
+  amountOut: bigint;
+  amountInMaximum: bigint;
+};
+
+// Contract address from environment variables
+export const SWAP_ROUTER_ADDRESS = import.meta.env.VITE_SWAP_ROUTER_ADDRESS;
+
+export const useSwapRouter = (signer: JsonRpcSigner | null) => {
+  const [contract, setContract] = useState<ethers.Contract | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Initialize contract
+  useEffect(() => {
+    if (!signer) {
+      setContract(null);
+      return;
+    }
+
+    try {
+      if (!SWAP_ROUTER_ADDRESS) {
+        throw new Error("Swap Router address not configured");
+      }
+
+      const contractInstance = new ethers.Contract(
+        SWAP_ROUTER_ADDRESS,
+        SWAP_ROUTER_ABI,
+        signer
+      );
+
+      setContract(contractInstance);
+      setError(null);
+    } catch (err) {
+      console.error("Error initializing Swap Router:", err);
+      setError("Failed to initialize Swap Router");
+    }
+  }, [signer]);
+
+  // Helper function to execute contract methods with error handling
+  const executeContractMethod = useCallback(
+    async <T>(method: () => Promise<T>): Promise<T> => {
+      if (!contract) throw new Error("Contract not initialized");
+      try {
+        setLoading(true);
+        setError(null);
+        return await method();
+      } catch (err: any) {
+        const errorMsg = err.reason || err.message || "Transaction failed";
+        setError(errorMsg);
+        throw new Error(errorMsg);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [contract]
+  );
+
+  // Exact Input Single
+  const exactInputSingle = useCallback(
+    async (params: ExactInputSingleParams) => {
+      return executeContractMethod(async () => {
+        if (!contract) throw new Error("Contract not initialized");
+        const tx = await contract.exactInputSingle({
+          ...params,
+          sqrtPriceLimitX96: params.sqrtPriceLimitX96 || 0n,
+        });
+        return await tx.wait();
+      });
+    },
+    [executeContractMethod, contract]
+  );
+
+  // Exact Input
+  const exactInput = useCallback(
+    async (params: ExactInputParams) => {
+      return executeContractMethod(async () => {
+        if (!contract) throw new Error("Contract not initialized");
+        const tx = await contract.exactInput(params);
+        return await tx.wait();
+      });
+    },
+    [executeContractMethod, contract]
+  );
+
+  // Exact Output Single
+  const exactOutputSingle = useCallback(
+    async (params: ExactOutputSingleParams) => {
+      return executeContractMethod(async () => {
+        if (!contract) throw new Error("Contract not initialized");
+        const tx = await contract.exactOutputSingle({
+          ...params,
+          sqrtPriceLimitX96: params.sqrtPriceLimitX96 || 0n,
+        });
+        return await tx.wait();
+      });
+    },
+    [executeContractMethod, contract]
+  );
+
+  // Exact Output
+  const exactOutput = useCallback(
+    async (params: ExactOutputParams) => {
+      return executeContractMethod(async () => {
+        if (!contract) throw new Error("Contract not initialized");
+        const tx = await contract.exactOutput(params);
+        return await tx.wait();
+      });
+    },
+    [executeContractMethod, contract]
+  );
+
+  // Multicall
+  const multicall = useCallback(
+    async (data: string[]) => {
+      return executeContractMethod(async () => {
+        if (!contract) throw new Error("Contract not initialized");
+        return await contract.multicall.staticCall(data);
+      });
+    },
+    [executeContractMethod, contract]
+  );
+
+  // Refund ETH
+  const refundETH = useCallback(async () => {
+    return executeContractMethod(async () => {
+      if (!contract) throw new Error("Contract not initialized");
+      const tx = await contract.refundETH();
+      return await tx.wait();
+    });
+  }, [executeContractMethod, contract]);
+
+  // Unwrap WETH9
+  const unwrapWETH9 = useCallback(
+    async (amountMinimum: bigint, recipient: string) => {
+      return executeContractMethod(async () => {
+        if (!contract) throw new Error("Contract not initialized");
+        const tx = await contract.unwrapWETH9(amountMinimum, recipient);
+        return await tx.wait();
+      });
+    },
+    [executeContractMethod, contract]
+  );
+
+  return {
+    // Core swap methods
+    exactInputSingle,
+    exactInput,
+    exactOutputSingle,
+    exactOutput,
+    
+    // Multicall
+    multicall,
+    
+    // ETH handling
+    refundETH,
+    unwrapWETH9,
+    
+    // State
+    loading,
+    error,
+    isInitialized: !!contract,
+  };
+};
