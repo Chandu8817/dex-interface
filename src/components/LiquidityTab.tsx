@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { ethers, JsonRpcSigner } from "ethers";
-import { SWAP_ROUTER_ADDRESS, useSwapRouter } from "../hooks/useSwapRouter";
-import { usePositionManager } from "../hooks/usePositionManager";
+import { POSITION_MANAGER_ADDRESS, usePositionManager } from "../hooks/usePositionManager";
 import { useERC20 } from "../hooks/useERC20";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -9,32 +8,30 @@ import { useQuote } from "../hooks/useQuote";
 import { SlippageSettings } from "./SlippageSettings";
 import TokenSelector from "./TokenSelector";
 import type { Token } from "../types";
+import { useTokens } from "../hooks/useTokens";
 
 
 interface LiquidityTabProps {
   signer: JsonRpcSigner | null;
 }
 type TabType = "add" | "remove";
-const DEFAULT_TOKENS = {
-  USDC: {
-    address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-    symbol: "USDC",
-    name: "USD Coin",
-    decimals: 6,
-    logoURI: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png",
-  },
-  WETH: {
-    address: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
-    symbol: "WETH",
-    name: "Wrapped Ether",
-    decimals: 18,
-    logoURI: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2/logo.png",
-  }
-};
+
 export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
+  const { tokens, getTokenBySymbol } = useTokens();
   const [activeTab, setActiveTab] = useState<TabType>("add");
-  const [tokenA, setTokenA] = useState<Token>(DEFAULT_TOKENS.WETH);
-  const [tokenB, setTokenB] = useState<Token>(DEFAULT_TOKENS.USDC);
+  const [tokenA, setTokenA] = useState<Token | null>(null);
+  const [tokenB, setTokenB] = useState<Token | null>(null);
+
+  // Initialize default tokens when tokens are loaded
+  useEffect(() => {
+    if (tokens.length > 0) {
+      const defaultTokenA = getTokenBySymbol("WETH") || tokens[0];
+      const defaultTokenB = getTokenBySymbol("USDC") || (tokens[1] || tokens[0]);
+      setTokenA(defaultTokenA);
+      setTokenB(defaultTokenB);
+    }
+  }, [tokens, getTokenBySymbol]);
+
   const [tokenId, setTokenId] = useState("");
   const [liquidity, setLiquidity] = useState("");
   const [amountA, setAmountA] = useState("");
@@ -96,6 +93,7 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
 
   // Check if user has sufficient balance
   const hasSufficientBalance = useCallback(() => {
+    
     if (!amountA || !amountB) return false;
     try {
       const amountAWei = formatTokenAmount(amountA, decimalsA); 
@@ -149,8 +147,8 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
           await Promise.all([
             getBalanceA(signerAddress, newTokenA),
             getBalanceB(signerAddress, newTokenB),
-            getAllowanceA(signerAddress, SWAP_ROUTER_ADDRESS, newTokenA),
-            getAllowanceB(signerAddress, SWAP_ROUTER_ADDRESS, newTokenB),
+            getAllowanceA(signerAddress, POSITION_MANAGER_ADDRESS, newTokenA),
+            getAllowanceB(signerAddress, POSITION_MANAGER_ADDRESS, newTokenB),
             getSymbolA(newTokenA),
             getSymbolB(newTokenB),
           ]);
@@ -188,19 +186,21 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
       !isInitialized ||
       !isERC20InitializedA ||
       !isERC20InitializedB
-    )
-      return;
+    ){
+      return;}
 
     try {
       const signerAddress = await signer.getAddress();
 
       // Fetch balances and allowances for both tokens
+      if (!tokenA || !tokenB) return;
       const [balanceA, balanceB, allowanceA, allowanceB, symbolA, symbolB] =
         await Promise.all([
+
           getBalanceA(signerAddress, tokenA.address),
           getBalanceB(signerAddress, tokenB.address),
-          getAllowanceA(signerAddress, SWAP_ROUTER_ADDRESS, tokenA.address),
-          getAllowanceB(signerAddress, SWAP_ROUTER_ADDRESS, tokenB.address),
+          getAllowanceA(signerAddress, POSITION_MANAGER_ADDRESS, tokenA.address),
+          getAllowanceB(signerAddress, POSITION_MANAGER_ADDRESS, tokenB.address),
           getSymbolA(tokenA.address),
           getSymbolB(tokenB.address),
         ]);
@@ -237,11 +237,11 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
   }, [fetchBalancesAndAllowances]);
 
   const handleApproveTokenA = async () => {
-    if (!amountA) return;
+    if (!amountA || !tokenA) return; 
     try {
       setIsProcessing(true);
       await approveA(
-        SWAP_ROUTER_ADDRESS,
+        POSITION_MANAGER_ADDRESS,
         ethers.parseUnits(amountA, decimalsA),
         tokenA.address,
       );
@@ -256,11 +256,11 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
   };
 
   const handleApproveTokenB = async () => {
-    if (!amountB) return;
+    if (!amountB || !tokenB) return;
     try {
       setIsProcessing(true);
       await approveB(
-        SWAP_ROUTER_ADDRESS,
+        POSITION_MANAGER_ADDRESS,
         ethers.parseUnits(amountB, decimalsB),
         tokenB.address,
       );
@@ -306,7 +306,7 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
       if (!isTokenBApproved()) {
         toast.info("Please approve Token B first");
         return;
-      }
+      }debugger
 
       // Double-check balances before proceeding
       if (!hasSufficientBalance()) {
@@ -320,41 +320,44 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
       const signerAddress = await signer?.getAddress();
       if (!signerAddress) throw new Error("No signer address available");
       
+      // Sort tokens by address (required by Uniswap V3)
+      const token0 = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() ? tokenA : tokenB;
+      const token1 = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() ? tokenB : tokenA;
+      
+      // Parse amounts based on token order
+      const amount0Desired = token0 === tokenA 
+        ? ethers.parseUnits(amountA, tokenA.decimals)
+        : ethers.parseUnits(amountB, tokenB.decimals);
+      const amount1Desired = token0 === tokenA 
+        ? ethers.parseUnits(amountB, tokenB.decimals)
+        : ethers.parseUnits(amountA, tokenA.decimals);
+
+      // Calculate minimum amounts with slippage
+      const slippageBasisPoints = BigInt(Math.floor(slippage * 100));
+      const amount0Min = (amount0Desired * (10000n - slippageBasisPoints)) / 10000n;
+      const amount1Min = (amount1Desired * (10000n - slippageBasisPoints)) / 10000n;
+
+      const base = Math.floor(-360447 / 200) * 200;
+const rangeMultiplier = 1; // how wide: 1 -> +/- one tickSpacing, bigger -> wider range
+const tickLower = base - 200 * rangeMultiplier;
+const tickUpper = base + 200 * rangeMultiplier;
+
       const params = {
-        token0: tokenA.address,
-        token1: tokenB.address,
-        fee: fee,
+        token0: token0.address,
+        token1: token1.address,
+        fee: Number(fee),
         tickLower: Number(tickLower),
         tickUpper: Number(tickUpper),
-        amount0Desired: tokenA < tokenB 
-          ? ethers.parseUnits(amountA, decimalsA)
-          : ethers.parseUnits(amountB, decimalsB),
-        amount1Desired: tokenA < tokenB 
-          ? ethers.parseUnits(amountB, decimalsB)
-          : ethers.parseUnits(amountA, decimalsA),
-        amount0Min: 0n,
-        amount1Min: 0n,
+        amount0Desired,
+        amount1Desired,
+        amount0Min,
+        amount1Min,
         recipient: signerAddress,
-        deadline: Math.floor(Date.now() / 1000) + deadline * 60, // 15 minutes from now
+        deadline: Math.floor(Date.now() / 1000) + deadline * 60, // deadline minutes from now
       };
-      // token0: string;
-      // token1: string;
-      // fee: number;
-      // tickLower: number;
-      // tickUpper: number;
-      // amount0Desired: bigint;
-      // amount1Desired: bigint;
-      // amount0Min: bigint;
-      // amount1Min: bigint;
-      // recipient: string;
-      // deadline: number;
-
-      // Calculate minimum amounts based on slippage
-      const slippageBasisPoints = BigInt(Math.floor(slippage * 100));
-      const amount0Min = (params.amount0Desired * (10000n - slippageBasisPoints)) / 10000n;
-      const amount1Min = (params.amount1Desired * (10000n - slippageBasisPoints)) / 10000n;
-
-
+      
+     
+      // Call the mint function with all required parameters
       const tx = await mint({
         token0: params.token0,
         token1: params.token1,
@@ -363,11 +366,12 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
         tickUpper: params.tickUpper,
         amount0Desired: params.amount0Desired,
         amount1Desired: params.amount1Desired,
-        amount0Min,
-        amount1Min,
+        amount0Min: 0n,
+        amount1Min: 0n,
         recipient: params.recipient,
         deadline: params.deadline,
       });
+      debugger
       const receipt = await tx.wait();
 
       toast.success("Liquidity added successfully!");
@@ -428,12 +432,12 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
       
       const isApproved = await isApprovedForAll(
         signerAddress,
-        SWAP_ROUTER_ADDRESS
+        POSITION_MANAGER_ADDRESS
       );
 
       if (!isApproved) {
         toast.info("Approving position manager...");
-        const approveTx = await approve(SWAP_ROUTER_ADDRESS, 1n);
+        const approveTx = await approve(POSITION_MANAGER_ADDRESS, 1n);
         await approveTx.wait();
       }
 
@@ -551,14 +555,16 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
         decimalsIn,
         decimalsOut,
       );
+      if (!quote) return;
       
+
       const amountOutWei = ethers.parseUnits(quote.amountOut, decimalsOut);
       const slippageBasisPoints = BigInt(Math.floor(slippage * 100));
       const minAmountOut = ethers.formatUnits(BigInt(amountOutWei) * (10000n - slippageBasisPoints) / 10000n, decimalsOut);
       setAmountB(minAmountOut.toString());
     } catch (err) {
       console.error("Failed to get quote:", err);
-      setAmountB("");
+
     }
   }, [
     tokenA,

@@ -43,7 +43,7 @@ type CollectParams = {
 };
 
 // Contract address from environment variables or default
-const POSITION_MANAGER_ADDRESS = import.meta.env.VITE_POSITION_MANAGER_ADDRESS || 
+export const POSITION_MANAGER_ADDRESS = import.meta.env.VITE_POSITION_MANAGER_ADDRESS || 
   "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"; // Mainnet address
 
 export const usePositionManager = (signer: JsonRpcSigner | null) => {
@@ -93,22 +93,22 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
 
   // Position Management
   const mint = useCallback(
-    async (params: MintParams) => {
+    async (params: MintParams) => {debugger;
       return executeContractMethod(async () => {
         if (!contract) throw new Error("Contract not initialized");
-        const tx = await contract.mint({
-          token0: params.token0,
-          token1: params.token1,
-          fee: params.fee,
-          tickLower: params.tickLower,
-          tickUpper: params.tickUpper,
-          amount0Desired: params.amount0Desired,
-          amount1Desired: params.amount1Desired,
-          amount0Min: params.amount0Min,
-          amount1Min: params.amount1Min,
-          recipient: params.recipient,
-          deadline: params.deadline,
-        });
+        const tx = await contract.mint([
+          params.token0,
+          params.token1,
+          params.fee,
+          params.tickLower,
+          params.tickUpper,
+          params.amount0Desired,
+          params.amount1Desired,
+          params.amount0Min,
+          params.amount1Min,
+          params.recipient,
+          params.deadline
+        ]);
         return await tx.wait();
       });
     },

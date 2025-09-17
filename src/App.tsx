@@ -170,8 +170,8 @@ function App() {
             ) : (
               <div>
                 {activeTab === "swap" && <SwapTab signer={signer} />}
-                {activeTab === "liquidity" && <LiquidityTab signer={null} />}
-                {activeTab === "pools" && <PoolsTab />}
+                {activeTab === "liquidity" && <LiquidityTab signer={signer} />}
+                {activeTab === "pools" && <PoolsTab signer={signer} />}
                 {activeTab === "transactions" && <Transactions />}
               </div>
             )}

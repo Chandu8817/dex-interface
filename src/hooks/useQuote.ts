@@ -58,7 +58,7 @@ export const useQuote = (signer: JsonRpcSigner | null) => {
 
       const amountInWei = ethers.parseUnits(amountIn, decimalsIn);
       const sqrtPriceLimit = ethers.getBigInt(sqrtPriceLimitX96);
-
+      debugger
       const amountOut = await contract.quoteExactInputSingle.staticCall(
         tokenIn,
         tokenOut,
@@ -66,15 +66,14 @@ export const useQuote = (signer: JsonRpcSigner | null) => {
         amountInWei,
         sqrtPriceLimit
       );
-
+      console.log("amountOut", amountOut);
       return {
         amountOut: ethers.formatUnits(amountOut, decimalsOut),
         amountOutWei: amountOut.toString()
       };
     } catch (err: any) {
-      console.error("Error in quoteExactInputSingle:", err);
       setError(err.message || "Failed to get quote");
-      throw err;
+      return null;
     } finally {
       setLoading(false);
     }

@@ -1,12 +1,18 @@
 import { useState, useEffect } from 'react';
 import type { Token, Pool } from '../types';
-import { usePool } from '../hooks/usePool';
+import { useFactory } from '../hooks/useFactory';
 import { TokenSelector } from './TokenSelector';
 import { useTokens } from '../hooks/useTokens';
+import { ethers } from 'ethers';
+import { usePool } from '../hooks/usePool';
 
 // Using Pool type from types.ts
 
-export function PoolsTab() {
+interface PoolsTabProps {
+  signer: ethers.Signer | null;
+}
+
+export function PoolsTab( { signer }: PoolsTabProps ) {
   const [tokenA, setTokenA] = useState<Token | null>(null);
   const [tokenB, setTokenB] = useState<Token | null>(null);
   const [feeTier, setFeeTier] = useState(3000);
@@ -15,34 +21,14 @@ export function PoolsTab() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'your'>('all');
+  const [reserve0, setReserve0] = useState<number>(0);
+  const [reserve1, setReserve1] = useState<number>(0);
   
   const { tokens } = useTokens();
-  const { getPoolAddress, createPool } = usePool();
+  const { getPoolAddress, createPool } = useFactory(signer as ethers.JsonRpcSigner);
+  const { initializePool, isPoolInitialized } = usePool(signer as ethers.JsonRpcSigner);
   
-  // Mock tokens data for testing
-  const mockTokens: Token[] = [
-    {
-      address: '0x0000000000000000000000000000000000000000',
-      name: 'Ethereum',
-      symbol: 'ETH',
-      decimals: 18,
-      logoURI: 'https://tokens.1inch.io/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png'
-    },
-    {
-      address: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
-      name: 'Dai Stablecoin',
-      symbol: 'DAI',
-      decimals: 18,
-      logoURI: 'https://tokens.1inch.io/0x6b175474e89094c44da98b954eedeac495271d0f.png'
-    },
-    {
-      address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
-      name: 'USD Coin',
-      symbol: 'USDC',
-      decimals: 6,
-      logoURI: 'https://tokens.1inch.io/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png'
-    }
-  ];
+ 
 
   // Fetch pools data
   const fetchPools = async () => {
@@ -50,49 +36,11 @@ export function PoolsTab() {
     setError(null);
     
     try {
-      // In a real app, you would fetch this data from:
-      // 1. Your subgraph for Dex V3
-      // 2. Your own backend API
-      // 3. Directly from the blockchain using ethers.js
-      
-      // Mock data for demonstration
-      const mockPools: Pool[] = [
-        {
-          token0: mockTokens[0],
-          token1: mockTokens[1],
-          fee: 3000,
-          tvl: '$1,234,567',
-          volume24h: '$123,456',
-          feeTier: '0.3%',
-          address: '0x123...456'
-        },
-        {
-          token0: mockTokens[1],
-          token1: mockTokens[2],
-          fee: 500,
-          tvl: '$987,654',
-          volume24h: '$45,678',
-          feeTier: '0.05%',
-          address: '0x789...012'
-        },
-        // Add more mock pools as needed
-      ];
-      
-      // In a real app, you would do something like:
-      // const response = await fetch('https://api.your-service.com/v3/pools');
-      // const poolsData = await response.json();
-      // setPools(poolsData);
-      
-      setPools(mockPools);
+   
       
     } catch (error) {
       console.error('Error fetching pools:', error);
       setError(error instanceof Error ? error : new Error('Failed to fetch pools'));
-      
-      // In a real app, you might want to:
-      // 1. Show a toast notification
-      // 2. Retry the request
-      // 3. Show a user-friendly error message
       
     } finally {
       setIsLoading(false);
@@ -112,25 +60,26 @@ export function PoolsTab() {
     try {
       setIsLoading(true);
       
-      // Ensure we have valid token objects
-      const token0: Token = tokenA;
-      const token1: Token = tokenB;
+      const token0: Token = tokenA!;
+      const token1: Token = tokenB!;
       
-      // Sort tokens by address to ensure consistent pool address calculation
       const sortedTokens = [token0, token1].sort((a, b) => 
         a.address.toLowerCase() < b.address.toLowerCase() ? -1 : 1
       ) as [Token, Token];
       
       const [sortedToken0, sortedToken1] = sortedTokens;
-      
+      debugger
       // Check if pool already exists
-      const poolAddress = await getPoolAddress(sortedToken0, sortedToken1, feeTier);
-      const poolExists = !!poolAddress;
+      let poolAddress = await getPoolAddress(sortedToken0, sortedToken1, feeTier);
+      const poolExists = poolAddress !== ethers.ZeroAddress;
       
       if (poolExists) {
-        console.log('Pool already exists:', poolAddress);
-        // In a real app, you might want to navigate to the pool or show a message
-        return;
+        const isInitialized = await isPoolInitialized(poolAddress);
+        if (isInitialized) {
+          console.log('Pool already initialized');
+          return;
+        }
+       await initializePool(poolAddress, ethers.parseUnits(reserve0.toString(), sortedToken0.decimals), ethers.parseUnits(reserve1.toString(), sortedToken1.decimals));
       }
       
       // Create the pool
@@ -140,10 +89,13 @@ export function PoolsTab() {
         feeTier 
       });
       
-      const newPoolAddress = await createPool(sortedToken0, sortedToken1, feeTier);
+      const {txHash, newPoolAddress} = await createPool(sortedToken0, sortedToken1, feeTier);
+      console.log('New pool address:', newPoolAddress);
       
-      if (!newPoolAddress) {
-        throw new Error('Failed to create pool: No address returned');
+      if (txHash && newPoolAddress) {
+        await initializePool(newPoolAddress, ethers.parseUnits(reserve0.toString(), sortedToken0.decimals), ethers.parseUnits(reserve1.toString(), sortedToken1.decimals));
+      }else{
+        throw new Error('Failed to create pool');
       }
       
       console.log('Pool created at:', newPoolAddress);
@@ -295,37 +247,77 @@ export function PoolsTab() {
           </div>
         </div>
 
-        <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
-          <div className="flex-1">
-            <TokenSelector
-              selectedToken={tokenA}
-              onSelect={setTokenA}
-              excludeToken={tokenB}
-              label="Token 1"
-            />
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Token A Section */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Token 1
+              </label>
+              <TokenSelector
+                selectedToken={tokenA}
+                onSelect={setTokenA}
+                excludeToken={tokenB}
+                label=""
+              />
+              <div className="mt-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Initial Reserve
+                </label>
+                <input
+                  type="number"
+                  value={reserve0}
+                  onChange={(e) => setReserve0(Number(e.target.value))}
+                  placeholder="0.0"
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Token B Section */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Token 2
+              </label>
+              <TokenSelector
+                selectedToken={tokenB}
+                onSelect={setTokenB}
+                excludeToken={tokenA}
+                label=""
+              />
+              <div className="mt-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Initial Reserve
+                </label>
+                <input
+                  type="number"
+                  value={reserve1}
+                  onChange={(e) => setReserve1(Number(e.target.value))}
+                  placeholder="0.0"
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
           </div>
-          <div className="flex-1">
-            <TokenSelector
-              selectedToken={tokenB}
-              onSelect={setTokenB}
-              excludeToken={tokenA}
-              label="Token 2"
-            />
-          </div>
-          <div className="flex-1">
+
+          {/* Fee Tier Section */}
+          <div className="w-full md:w-1/2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Fee Tier
             </label>
             <select
               value={feeTier}
               onChange={(e) => setFeeTier(Number(e.target.value))}
-              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value={100}>0.01%</option>
-              <option value={500}>0.05%</option>
-              <option value={3000}>0.3%</option>
-              <option value={10000}>1%</option>
+              <option value={100}>0.01% - Best for stable pairs (e.g., USDC/USDT)</option>
+              <option value={500}>0.05% - Best for stable pairs</option>
+              <option value={3000}>0.3% - Best for most pairs (e.g., ETH/USDC)</option>
+              <option value={10000}>1% - Best for exotic pairs</option>
             </select>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Select the fee tier that best matches your trading pair.
+            </p>
           </div>
         </div>
 

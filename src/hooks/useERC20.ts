@@ -11,6 +11,7 @@ export const useERC20 = (signer: JsonRpcSigner | null) => {
 
   const getBalance = async (address: string, contractAddress: string) => {
     if (signer) {
+      
       const contractInstance = new ethers.Contract(
         contractAddress,
         ERC20_ABI,

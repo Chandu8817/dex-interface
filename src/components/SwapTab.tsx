@@ -6,6 +6,7 @@ import { toast, ToastContainer } from "react-toastify";
 import { useQuote } from "../hooks/useQuote";
 import { SlippageSettings } from "./SlippageSettings";
 import TokenSelector from "./TokenSelector";
+import { useTokens } from "../hooks/useTokens";
 
 type Token = {
   name: string;
@@ -18,27 +19,20 @@ interface SwapTabProps {
   signer: JsonRpcSigner | null;
 }
 
-
-const DEFAULT_TOKENS = {
-  USDC: {
-    name: "USDC",
-    symbol: "USDC",
-    address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-    decimals: 6,
-    logoURI: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png"
-  },
-  WETH: {
-    name: "WETH",
-    symbol: "WETH",
-    address: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
-    decimals: 18,
-    logoURI: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2/logo.png"
-  }
-};
-
 export const SwapTab = ({ signer }: SwapTabProps) => {
-  const [tokenIn, setTokenIn] = useState<Token>(DEFAULT_TOKENS.WETH);
-  const [tokenOut, setTokenOut] = useState<Token>(DEFAULT_TOKENS.USDC);
+  const { tokens, getTokenBySymbol } = useTokens();
+  const [tokenIn, setTokenIn] = useState<Token | null>(null);
+  const [tokenOut, setTokenOut] = useState<Token | null>(null);
+
+  useEffect(() => {
+    if (tokens.length > 0) {
+      const defaultTokenIn = getTokenBySymbol("WETH") || tokens[0];
+      const defaultTokenOut = getTokenBySymbol("USDC") || (tokens[1] || tokens[0]);
+      setTokenIn(defaultTokenIn);
+      setTokenOut(defaultTokenOut);
+    }
+  }, [tokens, getTokenBySymbol]);
+
   const [amountIn, setAmountIn] = useState("");
   const [amountOut, setAmountOut] = useState("");
   const [slippage, setSlippage] = useState(0.5); // 0.5% default slippage
@@ -76,25 +70,27 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
 
   // Handle token switch
   const handleSwitchTokens = () => {
-    setTokenIn(tokenOut);
-    setTokenOut(tokenIn);
-    setAmountIn(amountOut);
-    setAmountOut(amountIn);
+    if (tokenIn && tokenOut) {
+      setTokenIn(tokenOut);
+      setTokenOut(tokenIn);
+      setAmountIn(amountOut);
+      setAmountOut(amountIn);
+    }
   };
 
   // Handle amount in change
   const handleAmountInChange = async (value: string) => {
     setAmountIn(value);
-    if (value && parseFloat(value) > 0) {
+    if (value && parseFloat(value) > 0 && tokenIn && tokenOut) {
       try {
         const quote = await quoteExactInputSingle(
           tokenIn.address, 
           tokenOut.address, 
           Number(fee), 
           value, 
-          decimalsIn.toString()
+          tokenIn.decimals.toString()
         );
-        setAmountOut(quote.amountOut);
+        setAmountOut(quote?.amountOut || "0");
       } catch (err) {
         console.error('Error getting quote:', err);
         setAmountOut('');
@@ -108,6 +104,11 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
   const handleAmountOutChange = (value: string) => {
     setAmountOut(value);
     // We don't implement reverse quote here for simplicity
+    // But we still need to handle the case where tokens are not loaded
+    if (!tokenIn || !tokenOut) {
+      console.warn('Tokens not loaded yet');
+      return;
+    }
   };
 
   // Check if balance is insufficient
@@ -136,12 +137,12 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
 
   // Check if input amount exceeds balance
   const isInsufficientBalance = useCallback(() => {
-    if (!amountIn || !balanceIn) return false;
+    if (!amountIn || !balanceIn || !tokenIn) return false;
     try {
-      const decimals = tokenIn === DEFAULT_TOKENS.USDC ? 6 : 18; // Assuming USDC has 6 decimals
-      const amountInWei = ethers.parseUnits(amountIn, decimals);
+      const amountInWei = ethers.parseUnits(amountIn, tokenIn.decimals);
       return BigInt(balanceIn) < amountInWei;
     } catch (e) {
+      console.error('Error checking insufficient balance:', e);
       return false;
     }
   }, [amountIn, balanceIn, tokenIn]);
@@ -152,9 +153,13 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
       !signer ||
       !isInitialized ||
       !isERC20InitializedA ||
-      !isERC20InitializedB
-    )
+      !isERC20InitializedB ||
+      !tokenIn ||
+      !tokenOut
+    ) {
+      console.warn('Cannot fetch balances: missing required data');
       return;
+    }
 
     try {
       const signerAddress = await signer.getAddress();
@@ -222,7 +227,7 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
         decimalsIn,
         decimalsOut,
       );
-      const amountOutWei = ethers.parseUnits(quote.amountOut, decimalsOut);
+      const amountOutWei = ethers.parseUnits(quote?.amountOut || "0", decimalsOut);
       const slippageBasisPoints = BigInt(Math.floor(slippage * 100));
       const minAmountOut = ethers.formatUnits(BigInt(amountOutWei) * (10000n - slippageBasisPoints) / 10000n, decimalsOut);
       setAmountOut(minAmountOut.toString());
@@ -251,8 +256,8 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
   }, [fetchQuote]);
 
   const handleApproveTokenIn = async () => {
-    if (!amountIn || !signer) {
-      toast.error("Please connect your wallet and enter an amount");
+    if (!amountIn || !signer || !tokenIn) {
+      toast.error("Please connect your wallet, select a token, and enter an amount");
       return;
     }
 
@@ -279,18 +284,26 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
   };
 
     const handleTokenAChange = (newToken: Token) => {
-      setTokenIn(newToken);
-      setAmountIn("");
-      setAmountOut("");
-    };
-  
-    const handleTokenBChange = (newToken: Token) => {
-      setTokenOut(newToken);
-      setAmountIn("");
-      setAmountOut("");
-    };
+    if (!newToken) return;
+    setTokenIn(newToken);
+    setAmountIn("");
+    setAmountOut("");
+  };
 
+  const handleTokenBChange = (newToken: Token) => {
+    if (!newToken) return;
+    setTokenOut(newToken);
+    setAmountIn("");
+    setAmountOut("");
+  };
+
+  // Handle swap
   const handleSwap = async () => {
+    if (!signer || !tokenIn || !tokenOut) {
+      console.error('Signer or tokens not initialized');
+      toast.error('Please connect your wallet and select tokens');
+      return;
+    }
     if (!tokenIn || !tokenOut || !amountIn || !amountOut || !signer) {
       toast.error("Please fill in all fields and connect your wallet");
       return;
@@ -467,7 +480,7 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
           </div>
 
           <div className="flex space-x-2">
-            {!hasInsufficientBalance ? (
+            {!isInsufficientBalance() ? (
               allowanceIn < amountIn ? (
                 <button
                   type="button"

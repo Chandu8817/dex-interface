@@ -1,82 +1,84 @@
+
+import { ethers, JsonRpcSigner } from 'ethers';
+import POOL_ABI from '../abis/Pool.json';
 import { useState } from 'react';
-import { ethers } from 'ethers';
-import type { Token } from '../types';
 
-export function usePool() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
 
-  const getPoolAddress = async (tokenA: Token, tokenB: Token, feeTier: number): Promise<string> => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      // Sort tokens by address for consistency
-      const [token0, token1] = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() 
-        ? [tokenA, tokenB] 
-        : [tokenB, tokenA];
-      
-      // In a real implementation, you would call your smart contract here
-      // This is a simplified example
-      const poolAddress = ethers.getCreate2Address(
-        '0x1F98431c8aD98523631AE4a59f267346ea31F984', // Dex V3 Factory address
-        ethers.keccak256(
-          ethers.solidityPacked(
-            ['address', 'address', 'uint24'],
-            [token0.address, token1.address, feeTier]
-          )
-        ),
-        '0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54' // Pool init code hash
-      );
-      
-      // Check if pool exists by checking its code size
-      const provider = new ethers.BrowserProvider((window as any).ethereum);
-      const code = await provider.getCode(poolAddress);
-      
-      return code !== '0x' ? poolAddress : ethers.ZeroAddress;
-    } catch (err) {
-      console.error('Error getting pool address:', err);
-      setError(err as Error);
-      return ethers.ZeroAddress;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+export function usePool(signer: JsonRpcSigner | null) {
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const createPool = async (tokenA: Token, tokenB: Token, feeTier: number) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      // In a real implementation, you would call your smart contract here
-      // This is a simplified example
-      const provider = new ethers.BrowserProvider((window as any).ethereum);
-      const signer = await provider.getSigner();
-      
-      // Sort tokens by address for consistency
-      const [token0, token1] = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() 
-        ? [tokenA, tokenB] 
-        : [tokenB, tokenA];
-      
-      // This would be your actual contract call
-      // const tx = await yourFactoryContract.connect(signer).createPool(token0.address, token1.address, feeTier);
-      // await tx.wait();
-      
-      // For now, we'll just return a mock transaction hash
-      return '0x' + '0'.repeat(64);
-    } catch (err) {
-      console.error('Error creating pool:', err);
-      setError(err as Error);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+ const initializePool = async (
+  poolAddress: string,
+  reserve1: bigint,
+  reserve0: bigint,
+ ) => {
+  setLoading(true);
+  setError(null);
+  if (!signer) {
+    setLoading(false);
+    setError("Signer not provided");
+    return;
+  }
 
+  if (!poolAddress) {
+    setLoading(false);
+    setError("Pool contract address not provided");
+    return;
+  }
+
+  console.log("Creating new Pool contract instance with address:", poolAddress);
+  const poolContract = new ethers.Contract(
+    poolAddress!,
+    POOL_ABI,
+    signer
+  );
+   // Example: 1 WETH per 2000 USDC
+ const sqrtPriceX96 = encodePriceSqrt(Number(reserve1), Number(reserve0));
+ console.log(sqrtPriceX96.toString());
+  const tx = await poolContract.initialize(sqrtPriceX96);
+  try {
+    await tx.wait();
+    setLoading(false);
+    return {txHash: tx.hash, success: true};
+  } catch (err: any) {
+  console.error("Error initializing pool:", err);
+  setError(err.message || "Failed to initialize pool");
+  setLoading(false);
+  return {txHash: null, success: false};
+ }
+ }
+
+ const isPoolInitialized = async (poolAddress: string) => {
+  if (!signer) {
+    return false;
+  }
+  if (!poolAddress) {
+    return false;
+  }
+  const poolContract = new ethers.Contract(
+    poolAddress,
+    POOL_ABI,
+    signer
+  );
+  const slot0 = await poolContract.slot0();
+  return slot0.sqrtPriceX96 > 0;
+ }
+
+
+ // target price = token1 per token0
+ function encodePriceSqrt(reserve1: number, reserve0: number): bigint {
+   const price = reserve1 / reserve0;
+   const sqrtPrice = Math.sqrt(price);
+   return BigInt(Math.floor(sqrtPrice * 2 ** 96));
+ }
+ 
+
+ 
   return {
-    getPoolAddress,
-    createPool,
-    isLoading,
+    initializePool,
+    isPoolInitialized,
+    isLoading: loading,
     error,
   };
 }
