@@ -56,24 +56,67 @@ export const useQuote = (signer: JsonRpcSigner | null) => {
       setLoading(true);
       setError(null);
 
+      // Convert amount to wei
       const amountInWei = ethers.parseUnits(amountIn, decimalsIn);
-      const sqrtPriceLimit = ethers.getBigInt(sqrtPriceLimitX96);
-      debugger
-      const amountOut = await contract.quoteExactInputSingle.staticCall(
+      
+      // Convert sqrtPriceLimitX96 to BigInt and ensure it's a valid uint160
+      let sqrtPriceLimit: bigint;
+      try {
+        sqrtPriceLimit = BigInt(sqrtPriceLimitX96);
+        // Ensure it's within uint160 range
+        if (sqrtPriceLimit < 0n || sqrtPriceLimit > 2n ** 160n - 1n) {
+          throw new Error("sqrtPriceLimitX96 out of range");
+        }
+      } catch (err) {
+        
+        throw new Error(`Invalid sqrtPriceLimitX96 value: ${sqrtPriceLimitX96}`);
+      }
+      
+      console.log("Calling quoteExactInputSingle with params:", {
         tokenIn,
         tokenOut,
         fee,
-        amountInWei,
-        sqrtPriceLimit
-      );
-      console.log("amountOut", amountOut);
+        amountInWei: amountInWei.toString(),
+        sqrtPriceLimit: sqrtPriceLimit.toString()
+      });
+      
+      // Get the signer's address
+      const signer = contract.runner as ethers.JsonRpcSigner;
+      if (!signer) {
+        throw new Error("No signer available");
+      }
+      
+  
+      
+      // Call the contract with the proper signer
+        const quote = await contract.quoteExactInputSingle.staticCall(
+          {
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            amountIn: amountInWei,
+            fee: fee,
+            sqrtPriceLimitX96: 0n,
+          }
+        );
+      
+      console.log("Quote successful, amountOut:", quote.amountOut.toString());
+      
       return {
-        amountOut: ethers.formatUnits(amountOut, decimalsOut),
-        amountOutWei: amountOut.toString()
+        amountOut: ethers.formatUnits(quote.amountOut.toString(), decimalsOut),
+        amountOutWei: quote.amountOut.toString()
       };
     } catch (err: any) {
-      setError(err.message || "Failed to get quote");
-      return null;
+     
+      
+      let errorMessage = "Failed to get quote";
+      if (err.reason) {
+        errorMessage = err.reason;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -112,7 +155,7 @@ export const useQuote = (signer: JsonRpcSigner | null) => {
         amountInWei: amountIn.toString()
       };
     } catch (err: any) {
-      console.error("Error in quoteExactOutputSingle:", err);
+   
       setError(err.message || "Failed to get quote");
       throw err;
     } finally {

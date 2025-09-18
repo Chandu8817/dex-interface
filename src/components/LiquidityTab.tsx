@@ -331,16 +331,16 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
       const amount1Desired = token0 === tokenA 
         ? ethers.parseUnits(amountB, tokenB.decimals)
         : ethers.parseUnits(amountA, tokenA.decimals);
-
+debugger
       // Calculate minimum amounts with slippage
       const slippageBasisPoints = BigInt(Math.floor(slippage * 100));
       const amount0Min = (amount0Desired * (10000n - slippageBasisPoints)) / 10000n;
       const amount1Min = (amount1Desired * (10000n - slippageBasisPoints)) / 10000n;
 
-      const base = Math.floor(-360447 / 200) * 200;
-const rangeMultiplier = 1; // how wide: 1 -> +/- one tickSpacing, bigger -> wider range
-const tickLower = base - 200 * rangeMultiplier;
-const tickUpper = base + 200 * rangeMultiplier;
+//       const base = Math.floor(-360447 / 200) * 200;
+// const rangeMultiplier = 1; // how wide: 1 -> +/- one tickSpacing, bigger -> wider range
+// const tickLower = base - 200 * rangeMultiplier;
+// const tickUpper = base + 200 * rangeMultiplier;
 
       const params = {
         token0: token0.address,
@@ -429,25 +429,27 @@ const tickUpper = base + 200 * rangeMultiplier;
       // First check if the position manager is approved
       const signerAddress = await signer?.getAddress();
       if (!signerAddress) throw new Error("No signer address available");
-      
+      debugger
       const isApproved = await isApprovedForAll(
         signerAddress,
         POSITION_MANAGER_ADDRESS
       );
 
-      if (!isApproved) {
-        toast.info("Approving position manager...");
-        const approveTx = await approve(POSITION_MANAGER_ADDRESS, 1n);
-        await approveTx.wait();
-      }
+      // if (!isApproved) {
+      //   toast.info("Approving position manager...");
+      //   const approveTx = await approve(POSITION_MANAGER_ADDRESS, BigInt(tokenId));
+      //   if(approveTx){
+      //     toast.success("Position manager approved successfully");
+      //   }
+      // }
 
       // Get position details
       const position = await positions(BigInt(tokenId));
       if (!position) {
         throw new Error("Position not found");
       }
-
-      // Decrease liquidity to 0
+       if(position.liquidity > 0n){
+          // Decrease liquidity to 0
       const params = {
         tokenId: BigInt(tokenId),
         liquidity: position.liquidity,
@@ -455,24 +457,28 @@ const tickUpper = base + 200 * rangeMultiplier;
         amount1Min: 0n,
         deadline: Math.floor(Date.now() / 1000) + 60 * 20, // 20 minutes from now
       };
-
+ 
       toast.info("Removing liquidity...");
       const tx = await decreaseLiquidity(params);
-      const receipt = await tx.wait();
-
+      if(tx){
+        toast.success("Liquidity removed successfully");
+      }
+       }
+    
+       const MaxUint128 = (1n << 128n) - 1n;
       // Collect fees
-      await collect({
+    const collectTx =  await collect({
         tokenId: BigInt(tokenId),
         recipient: signerAddress,
-        amount0Max: ethers.MaxUint256,
-        amount1Max: ethers.MaxUint256,
+        amount0Max: MaxUint128,
+        amount1Max: MaxUint128,
       });
 
       // Burn the position
-      await burn(BigInt(tokenId));
+    const burnTx = await burn(BigInt(tokenId));
 
       toast.success("Liquidity removed successfully!");
-      setTxHash(receipt.transactionHash);
+      setTxHash(burnTx.hash);
       setTokenId("");
       setLiquidity("");
       
@@ -563,7 +569,7 @@ const tickUpper = base + 200 * rangeMultiplier;
       const minAmountOut = ethers.formatUnits(BigInt(amountOutWei) * (10000n - slippageBasisPoints) / 10000n, decimalsOut);
       setAmountB(minAmountOut.toString());
     } catch (err) {
-      console.error("Failed to get quote:", err);
+      // console.error("Failed to get quote:", err);
 
     }
   }, [

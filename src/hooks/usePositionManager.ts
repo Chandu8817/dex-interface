@@ -109,7 +109,8 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
           params.recipient,
           params.deadline
         ]);
-        return await tx.wait();
+         await tx.wait();
+        return tx;
       });
     },
     [executeContractMethod, contract]
@@ -127,7 +128,8 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
           amount1Min: params.amount1Min,
           deadline: params.deadline,
         });
-        return await tx.wait();
+         await tx.wait();
+        return tx;
       });
     },
     [executeContractMethod, contract]
@@ -144,7 +146,8 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
           amount1Min: params.amount1Min,
           deadline: params.deadline,
         });
-        return await tx.wait();
+         await tx.wait();
+         return tx;
       });
     },
     [executeContractMethod, contract]
@@ -160,7 +163,8 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
           amount0Max: params.amount0Max,
           amount1Max: params.amount1Max,
         });
-        return await tx.wait();
+         await tx.wait();
+         return tx;
       });
     },
     [executeContractMethod, contract]
@@ -172,7 +176,8 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
       return executeContractMethod(async () => {
         if (!contract) throw new Error("Contract not initialized");
         const tx = await contract.burn(tokenId);
-        return await tx.wait();
+         await tx.wait();
+         return tx;
       });
     },
     [executeContractMethod, contract]
@@ -195,7 +200,8 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
       return executeContractMethod(async () => {
         if (!contract) throw new Error("Contract not initialized");
         const tx = await contract.approve(to, tokenId);
-        return await tx.wait();
+         await tx.wait();
+         return tx;
       });
     },
     [executeContractMethod, contract]
@@ -206,7 +212,8 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
       return executeContractMethod(async () => {
         if (!contract) throw new Error("Contract not initialized");
         const tx = await contract.setApprovalForAll(operator, approved);
-        return await tx.wait();
+         await tx.wait();
+         return tx;
       });
     },
     [executeContractMethod, contract]

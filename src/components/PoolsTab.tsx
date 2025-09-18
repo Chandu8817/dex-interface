@@ -12,7 +12,7 @@ interface PoolsTabProps {
   signer: ethers.Signer | null;
 }
 
-export function PoolsTab( { signer }: PoolsTabProps ) {
+export function PoolsTab({ signer }: PoolsTabProps) {
   const [tokenA, setTokenA] = useState<Token | null>(null);
   const [tokenB, setTokenB] = useState<Token | null>(null);
   const [feeTier, setFeeTier] = useState(3000);
@@ -23,25 +23,25 @@ export function PoolsTab( { signer }: PoolsTabProps ) {
   const [activeTab, setActiveTab] = useState<'all' | 'your'>('all');
   const [reserve0, setReserve0] = useState<number>(0);
   const [reserve1, setReserve1] = useState<number>(0);
-  
+
   const { tokens } = useTokens();
   const { getPoolAddress, createPool } = useFactory(signer as ethers.JsonRpcSigner);
   const { initializePool, isPoolInitialized } = usePool(signer as ethers.JsonRpcSigner);
-  
- 
+
+
 
   // Fetch pools data
   const fetchPools = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-   
-      
+
+
     } catch (error) {
       console.error('Error fetching pools:', error);
       setError(error instanceof Error ? error : new Error('Failed to fetch pools'));
-      
+
     } finally {
       setIsLoading(false);
     }
@@ -56,53 +56,69 @@ export function PoolsTab( { signer }: PoolsTabProps ) {
       console.error('Both tokens must be selected');
       return;
     }
-    
+
     try {
       setIsLoading(true);
-      
+
       const token0: Token = tokenA!;
       const token1: Token = tokenB!;
-      
-      const sortedTokens = [token0, token1].sort((a, b) => 
+
+      const sortedTokens = [token0, token1].sort((a, b) =>
         a.address.toLowerCase() < b.address.toLowerCase() ? -1 : 1
       ) as [Token, Token];
-      
+
       const [sortedToken0, sortedToken1] = sortedTokens;
-      debugger
+      let amount0, amount1;
+debugger
+      if (sortedToken0.address.toLowerCase() === tokenA.address.toLowerCase()) {
+        // matlab tokenA == token0
+        amount0 = ethers.parseUnits(reserve0.toString(), sortedToken0.decimals);
+        amount1 = ethers.parseUnits(reserve1.toString(), sortedToken1.decimals);
+      } else {
+        // matlab tokenB == token0
+        amount0 = ethers.parseUnits(reserve1.toString(), sortedToken0.decimals);
+        amount1 = ethers.parseUnits(reserve0.toString(), sortedToken1.decimals);
+      }
+      
       // Check if pool already exists
       let poolAddress = await getPoolAddress(sortedToken0, sortedToken1, feeTier);
       const poolExists = poolAddress !== ethers.ZeroAddress;
-      
+
       if (poolExists) {
         const isInitialized = await isPoolInitialized(poolAddress);
-        if (isInitialized) {
-          console.log('Pool already initialized');
-          return;
-        }
-       await initializePool(poolAddress, ethers.parseUnits(reserve0.toString(), sortedToken0.decimals), ethers.parseUnits(reserve1.toString(), sortedToken1.decimals));
+        // if (isInitialized) {
+        //   console.log('Pool already initialized');
+        //   return;
+        // }
+
+        const adjAmount1 = Number(amount1) / (10 ** sortedToken1.decimals);
+        const adjAmount0 = Number(amount0) / (10 ** sortedToken0.decimals);
+        await initializePool(poolAddress, BigInt(adjAmount0), BigInt(adjAmount1));
       }
-      
+
       // Create the pool
-      console.log('Creating pool with:', { 
-        token0: sortedToken0, 
-        token1: sortedToken1, 
-        feeTier 
+      console.log('Creating pool with:', {
+        token0: sortedToken0,
+        token1: sortedToken1,
+        feeTier
       });
-      
-      const {txHash, newPoolAddress} = await createPool(sortedToken0, sortedToken1, feeTier);
+
+      const { txHash, newPoolAddress } = await createPool(sortedToken0, sortedToken1, feeTier);
       console.log('New pool address:', newPoolAddress);
-      
+debugger
       if (txHash && newPoolAddress) {
-        await initializePool(newPoolAddress, ethers.parseUnits(reserve0.toString(), sortedToken0.decimals), ethers.parseUnits(reserve1.toString(), sortedToken1.decimals));
-      }else{
+        const adjAmount1 = Number(amount1) / (10 ** sortedToken1.decimals);
+        const adjAmount0 = Number(amount0) / (10 ** sortedToken0.decimals);
+        await initializePool(newPoolAddress, BigInt(adjAmount0), BigInt(adjAmount1));
+      } else {
         throw new Error('Failed to create pool');
       }
-      
+
       console.log('Pool created at:', newPoolAddress);
-      
+
       // Refresh the pools list
       await fetchPools();
-      
+
       // Reset the form
       setTokenA(null);
       setTokenB(null);
@@ -115,15 +131,15 @@ export function PoolsTab( { signer }: PoolsTabProps ) {
   };
 
   const filteredPools = pools.filter((pool) => {
-    const matchesSearch = searchQuery === '' || 
+    const matchesSearch = searchQuery === '' ||
       pool.token0.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
       pool.token1.symbol.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     if (activeTab === 'your') {
       // TODO: Filter for user's pools only
       return matchesSearch;
     }
-    
+
     return matchesSearch;
   });
 
@@ -133,20 +149,20 @@ export function PoolsTab( { signer }: PoolsTabProps ) {
         console.error('Invalid pool data:', pool);
         return;
       }
-      
+
       const { token0, token1, fee } = pool;
-      
+
       console.log('Adding liquidity to pool:', {
         token0: token0.address,
         token1: token1.address,
         fee
       });
-      
+
       // In a real app, you would:
       // 1. Set the tokens and fee in the liquidity context/state
       // 2. Switch to the liquidity tab
       // 3. Pre-fill the token amounts if needed
-      
+
       // Example implementation with React Router:
       // navigate('/liquidity', { 
       //   state: { 
@@ -155,10 +171,10 @@ export function PoolsTab( { signer }: PoolsTabProps ) {
       //     feeTier: fee
       //   } 
       // });
-      
+
       // For now, we'll just show an alert
       alert(`Would navigate to add liquidity for ${token0.symbol}/${token1.symbol} (${fee / 10000}%)`);
-      
+
     } catch (error) {
       console.error('Error in handleAddLiquidity:', error);
       // In a real app, show a user-friendly error message
@@ -219,28 +235,26 @@ export function PoolsTab( { signer }: PoolsTabProps ) {
           </div>
         </div>
       )}
-      
+
       <div className="flex flex-col space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Pools</h2>
           <div className="flex space-x-2">
             <button
               onClick={() => setActiveTab('all')}
-              className={`px-4 py-2 text-sm font-medium rounded-lg ${
-                activeTab === 'all'
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100'
-                  : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
-              }`}
+              className={`px-4 py-2 text-sm font-medium rounded-lg ${activeTab === 'all'
+                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100'
+                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+                }`}
             >
               All Pools
             </button>
             <button
               onClick={() => setActiveTab('your')}
-              className={`px-4 py-2 text-sm font-medium rounded-lg ${
-                activeTab === 'your'
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100'
-                  : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
-              }`}
+              className={`px-4 py-2 text-sm font-medium rounded-lg ${activeTab === 'your'
+                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100'
+                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+                }`}
             >
               Your Pools
             </button>
@@ -325,11 +339,10 @@ export function PoolsTab( { signer }: PoolsTabProps ) {
           <button
             onClick={handleCreatePool}
             disabled={!tokenA || !tokenB || isLoading}
-            className={`px-6 py-2 rounded-lg font-medium ${
-              !tokenA || !tokenB || isLoading
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
+            className={`px-6 py-2 rounded-lg font-medium ${!tokenA || !tokenB || isLoading
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
           >
             {isLoading ? 'Loading...' : 'Create Pool'}
           </button>
