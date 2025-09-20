@@ -1,9 +1,9 @@
 export interface Token {
-  address: string;
+  id: string;
   name: string;
   symbol: string;
   decimals: number;
-  logoURI: string;
+  logoURI?: string;
   chainId?: number;
 }
 
@@ -16,3 +16,41 @@ export interface Pool {
   feeTier: string;
   address?: string;
 }
+// Types
+export type ExactInputSingleParams = {
+  tokenIn: string;
+  tokenOut: string;
+  fee: number;
+  recipient: string;
+  deadline: number;
+  amountIn: bigint;
+  amountOutMinimum: bigint;
+  sqrtPriceLimitX96?: bigint;
+};
+
+export type ExactInputParams = {
+  path: string;
+  recipient: string;
+  deadline: number;
+  amountIn: bigint;
+  amountOutMinimum: bigint;
+};
+
+export type ExactOutputSingleParams = {
+  tokenIn: string;
+  tokenOut: string;
+  fee: number;
+  recipient: string;
+  deadline: number;
+  amountOut: bigint;
+  amountInMaximum: bigint;
+  sqrtPriceLimitX96?: bigint;
+};
+
+export type ExactOutputParams = {
+  path: string;
+  recipient: string;
+  deadline: number;
+  amountOut: bigint;
+  amountInMaximum: bigint;
+};

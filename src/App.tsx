@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useMetaMask } from "./hooks/useMetaMask";
-import { SwapTab } from "./components/SwapTab";
-import { LiquidityTab } from "./components/LiquidityTab";
-import { PoolsTab } from "./components/PoolsTab";
+import { SwapTab } from "./components/Swap/SwapTab";
+import { LiquidityTab } from "./components/Liquidity/LiquidityTab";
+import { PoolsTab } from "./components/Pools/PoolsTab";
 import "./App.css";
 import Transactions from "./components/Transactions";
 
@@ -171,7 +171,7 @@ function App() {
               <div>
                 {activeTab === "swap" && <SwapTab signer={signer} />}
                 {activeTab === "liquidity" && <LiquidityTab signer={signer} />}
-                {activeTab === "pools" && <PoolsTab signer={signer} />}
+                {activeTab === "pools" && <PoolsTab signer={signer} handleChangeSetActiveTab={setActiveTab} />}
                 {activeTab === "transactions" && <Transactions />}
               </div>
             )}

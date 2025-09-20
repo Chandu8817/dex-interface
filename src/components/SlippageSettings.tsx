@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import ToggleButton from './UI/ToggleButton';
 
 interface SlippageSettingsProps {
   slippage: number;
@@ -6,6 +7,8 @@ interface SlippageSettingsProps {
   deadline: number;
   onDeadlineChange: (value: number) => void;
   className?: string;
+  isMulitiCallOn?: boolean;
+  setIsMulitiCallOn?: (value: boolean) => void;
 }
 
 export const SlippageSettings = ({
@@ -14,11 +17,14 @@ export const SlippageSettings = ({
   deadline,
   onDeadlineChange,
   className = '',
+  isMulitiCallOn=false,
+  setIsMulitiCallOn = () => {},
 }: SlippageSettingsProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [customSlippage, setCustomSlippage] = useState(slippage.toString());
   const [customDeadline, setCustomDeadline] = useState(deadline);
   const [activePreset, setActivePreset] = useState<string | null>(null);
+
 
   const presets = [
     { label: '0.1%', value: 0.1 },
@@ -191,7 +197,13 @@ export const SlippageSettings = ({
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
               <span className="text-gray-500 dark:text-gray-400 text-sm">min</span>
             </div>
+
           </div>
+
+          <div>
+          <ToggleButton enabled={isMulitiCallOn} onChange={setIsMulitiCallOn} />
+
+            </div>
           
          
         </div>

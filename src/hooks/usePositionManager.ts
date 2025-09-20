@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
 import { JsonRpcSigner } from "ethers";
 import POSITION_MANAGER_ABI from "../abis/PositionManager.json";
+import { POSITION_MANAGER_ADDRESS } from "../constants";
 
 // Types
 type MintParams = {
@@ -43,8 +44,7 @@ type CollectParams = {
 };
 
 // Contract address from environment variables or default
-export const POSITION_MANAGER_ADDRESS = import.meta.env.VITE_POSITION_MANAGER_ADDRESS || 
-  "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"; // Mainnet address
+
 
 export const usePositionManager = (signer: JsonRpcSigner | null) => {
   const [contract, setContract] = useState<ethers.Contract | null>(null);
@@ -75,6 +75,7 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
   // Helper function to execute contract methods with error handling
   const executeContractMethod = useCallback(
     async <T>(method: () => Promise<T>): Promise<T> => {
+      
       if (!contract) throw new Error("Contract not initialized");
       try {
         setLoading(true);
@@ -93,9 +94,10 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
 
   // Position Management
   const mint = useCallback(
-    async (params: MintParams) => {debugger;
+    async (params: MintParams,value?: bigint) => {
       return executeContractMethod(async () => {
         if (!contract) throw new Error("Contract not initialized");
+        debugger
         const tx = await contract.mint([
           params.token0,
           params.token1,
@@ -107,8 +109,11 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
           params.amount0Min,
           params.amount1Min,
           params.recipient,
-          params.deadline
-        ]);
+          params.deadline,
+          
+        ],
+        {value: value}
+      );
          await tx.wait();
         return tx;
       });
@@ -117,7 +122,7 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
   );
 
   const increaseLiquidity = useCallback(
-    async (params: IncreaseLiquidityParams) => {
+    async (params: IncreaseLiquidityParams,value?: bigint) => {
       return executeContractMethod(async () => {
         if (!contract) throw new Error("Contract not initialized");
         const tx = await contract.increaseLiquidity({
@@ -127,7 +132,9 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
           amount0Min: params.amount0Min,
           amount1Min: params.amount1Min,
           deadline: params.deadline,
-        });
+        },
+        {value: value}
+      );
          await tx.wait();
         return tx;
       });
@@ -136,7 +143,7 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
   );
 
   const decreaseLiquidity = useCallback(
-    async (params: DecreaseLiquidityParams) => {
+    async (params: DecreaseLiquidityParams,value?: bigint  ) => {
       return executeContractMethod(async () => {
         if (!contract) throw new Error("Contract not initialized");
         const tx = await contract.decreaseLiquidity({
@@ -145,7 +152,9 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
           amount0Min: params.amount0Min,
           amount1Min: params.amount1Min,
           deadline: params.deadline,
-        });
+        },
+        {value: value}
+      );
          await tx.wait();
          return tx;
       });
@@ -154,7 +163,7 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
   );
 
   const collect = useCallback(
-    async (params: CollectParams) => {
+    async (params: CollectParams,value?: bigint) => {
       return executeContractMethod(async () => {
         if (!contract) throw new Error("Contract not initialized");
         const tx = await contract.collect({
@@ -162,7 +171,9 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
           recipient: params.recipient,
           amount0Max: params.amount0Max,
           amount1Max: params.amount1Max,
-        });
+        },
+        {value: value}
+      );
          await tx.wait();
          return tx;
       });
@@ -172,10 +183,10 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
 
   // Token Management
   const burn = useCallback(
-    async (tokenId: bigint) => {
+    async (tokenId: bigint,value?: bigint) => {
       return executeContractMethod(async () => {
         if (!contract) throw new Error("Contract not initialized");
-        const tx = await contract.burn(tokenId);
+        const tx = await contract.burn(tokenId,{value: value});
          await tx.wait();
          return tx;
       });
@@ -265,6 +276,41 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
     });
   }, [executeContractMethod, contract]);
 
+  const multicall = useCallback(async (data: string[],value?: bigint) => {
+    return executeContractMethod(async () => {
+      if (!contract) throw new Error("Contract not initialized");
+      const tx = await contract.multicall(data,{value: value});
+       await tx.wait();
+       return tx;
+    });
+  }, [executeContractMethod, contract]);
+
+  
+// Get all positions of a user
+const getUserPositions = async ( user: string) => {
+  if (!contract) throw new Error("Contract not initialized");
+  const balance = await contract.balanceOf(user);
+  const positions: any[] = [];
+
+  for (let i = 0; i < balance; i++) {
+    const tokenId = await contract.tokenOfOwnerByIndex(user, i);
+    const pos = await contract.positions(tokenId);
+    positions.push({
+      tokenId: tokenId.toString(),
+      token0: pos.token0,
+      token1: pos.token1,
+      fee: pos.fee,
+      tickLower: pos.tickLower,
+      tickUpper: pos.tickUpper,
+      liquidity: pos.liquidity.toString(),
+      tokensOwed0: pos.tokensOwed0.toString(),
+      tokensOwed1: pos.tokensOwed1.toString(),
+      user: user,
+    });
+  }
+
+  return positions;
+};
   return {
     // Core Position Management
     mint,
@@ -273,7 +319,7 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
     collect,
     burn,
     positions,
-    
+    getUserPositions,
     // ERC721 Methods
     approve,
     setApprovalForAll,
@@ -286,6 +332,7 @@ export const usePositionManager = (signer: JsonRpcSigner | null) => {
     // Contract Info
     factory,
     WETH9,
+    multicall,
     
     // State
     contract,

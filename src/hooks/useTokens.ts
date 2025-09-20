@@ -1,48 +1,61 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Token } from '../types';
-import tokens from '../data/tokens.json';
+import { useQuery } from "@apollo/client/react";
+import { gql } from "@apollo/client";
+import  tokenLogos  from "../data/tokens.json";
 
 // Common tokens that will be available in the app
-const COMMON_TOKENS: Token[] = tokens;
+interface TokenData {
+tokens: Token[];
+}
 
 export function useTokens() {
+  const [error] = useState<Error | null>(null);
   const [tokens, setTokens] = useState<Token[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  const fetchTokens = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // In a real app, you would fetch from a token list URL or your backend
-      // For now, we'll use the common tokens list
-      setTokens(COMMON_TOKENS);
-
-    } catch (err) {
-      console.error('Error fetching tokens:', err);
-      setError(err instanceof Error ? err : new Error('Failed to fetch tokens'));
-
-      // Return common tokens as fallback
-      setTokens(COMMON_TOKENS);
-
-    } finally {
-      setIsLoading(false);
+  const { data: tokenData, loading: isLoading } = useQuery<Partial<TokenData>>(gql`
+    query {
+      tokens {
+        id
+        symbol
+        decimals
+        name
+      }
     }
-  }, []);
+  `);
 
-  useEffect(() => {
-    fetchTokens();
-  }, [fetchTokens]);
+  // Always build tokensWithLogo from latest tokenData
+   useEffect(() => {
+    if (tokenData) {
+      const tokens = (tokenData?.tokens || []).map((token: Token) => {
+        const logo = tokenLogos.find(
+          (logo) => logo.symbol.toLowerCase() === token.symbol.toLowerCase()
+        );
+        return {
+          ...token,
+          logoURI: logo?.url || "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png"
+        };
+      });
+      const eth = {
+        id: "0x8e91D1043A2bcC8b68cd25e73847Cb392e3a604D",
+        symbol: "ETH",
+        decimals: 18,
+        name: "Ethereum",
+        logoURI: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png"
+      }
+      tokens.push(eth);
+      setTokens(tokens);
+    }
+   }, [tokenData]);
 
   // Find token by address
   const getTokenByAddress = useCallback((address: string): Token | undefined => {
-    return tokens.find(token => token.address.toLowerCase() === address.toLowerCase());
+    return tokens?.find(token => token?.id.toLowerCase() === address.toLowerCase());
   }, [tokens]);
 
   // Find token by symbol
   const getTokenBySymbol = useCallback((symbol: string): Token | undefined => {
-    return tokens.find(token => token.symbol.toLowerCase() === symbol.toLowerCase());
+    const token = tokens?.find(token => token.symbol.toLowerCase() === symbol.toLowerCase());
+    return token;
   }, [tokens]);
 
   return {
@@ -51,6 +64,6 @@ export function useTokens() {
     error,
     getTokenByAddress,
     getTokenBySymbol,
-    refetch: fetchTokens
   };
+
 }

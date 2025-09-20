@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
+import TickRange from "./TickerRangeSelect";
 import { ethers, JsonRpcSigner } from "ethers";
-import { POSITION_MANAGER_ADDRESS, usePositionManager } from "../hooks/usePositionManager";
-import { useERC20 } from "../hooks/useERC20";
+import {  usePositionManager } from "../../hooks/usePositionManager";
+import { POSITION_MANAGER_ADDRESS } from "../../constants";
+import { useERC20 } from "../../hooks/useERC20";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { useQuote } from "../hooks/useQuote";
-import { SlippageSettings } from "./SlippageSettings";
-import TokenSelector from "./TokenSelector";
-import type { Token } from "../types";
-import { useTokens } from "../hooks/useTokens";
+import { useQuote } from "../../hooks/useQuote";
+import { SlippageSettings } from "../SlippageSettings";
+import TokenSelector from "../TokenSelector";
+import type { Token } from "../../types";
+import { useTokens } from "../../hooks/useTokens";
+import { useFactory } from "../../hooks/useFactory";
 
 
 interface LiquidityTabProps {
@@ -17,28 +20,43 @@ interface LiquidityTabProps {
 type TabType = "add" | "remove";
 
 export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
+  // Step state: 1 = select pair/fee, 2 = set range & amounts
+  const [step, setStep] = useState<1 | 2>(1);
+  const [poolAddress, setPoolAddress] = useState<string>(""); // fetched pool address
+  const { getPoolAddress } = useFactory(signer);
+
   const { tokens, getTokenBySymbol } = useTokens();
   const [activeTab, setActiveTab] = useState<TabType>("add");
   const [tokenA, setTokenA] = useState<Token | null>(null);
   const [tokenB, setTokenB] = useState<Token | null>(null);
+  const [isMulitiCallOn, setIsMulitiCallOn] = useState(false);
 
   // Initialize default tokens when tokens are loaded
   useEffect(() => {
     if (tokens.length > 0) {
-      const defaultTokenA = getTokenBySymbol("WETH") || tokens[0];
-      const defaultTokenB = getTokenBySymbol("USDC") || (tokens[1] || tokens[0]);
-      setTokenA(defaultTokenA);
-      setTokenB(defaultTokenB);
+      const defaultTokenA = getTokenBySymbol("ETH") ;
+      const defaultTokenB = getTokenBySymbol("USDC");
+      setTokenA(defaultTokenA as Token);
+      setTokenB(defaultTokenB as Token);
     }
   }, [tokens, getTokenBySymbol]);
+
+  const [fee, setFee] = useState(3000); // 0.3% fee tier
+
+  // Reset pool and amounts if pair/fee changes
+  useEffect(() => {
+    setPoolAddress("");
+    setStep(1);
+    setAmountA("");
+    setAmountB("");
+  }, [tokenA, tokenB, fee]);
 
   const [tokenId, setTokenId] = useState("");
   const [liquidity, setLiquidity] = useState("");
   const [amountA, setAmountA] = useState("");
   const [amountB, setAmountB] = useState("");
-  const [fee, setFee] = useState(3000); // 0.3% fee tier
-  const [tickLower, setTickLower] = useState("-60000");
-  const [tickUpper, setTickUpper] = useState("60000");
+  const [tickLower, setTickLower] = useState("");
+  const [tickUpper, setTickUpper] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +93,8 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
     burn,
     positions,
     approve,
+    multicall,
+    contract,
     isApprovedForAll,
     isInitialized,
   } = usePositionManager(signer);
@@ -109,6 +129,10 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
 
   // Check if token is approved
   const isTokenAApproved = useCallback(() => {
+    
+    if(isMulitiCallOn){
+      return true;
+    }
     if (!amountA) return false;
     try {
       const amountAWei = formatTokenAmount(amountA, decimalsA);
@@ -119,6 +143,9 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
   }, [amountA, allowanceA]);
 
   const isTokenBApproved = useCallback(() => {
+    if(isMulitiCallOn){
+      return true;
+    }
     if (!amountB) return false;
     try {
       const amountBWei = formatTokenAmount(amountB, decimalsB);
@@ -130,7 +157,7 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
 
   // Function to update token A and B data
   const updateTokenData = useCallback(
-    async (newTokenA: string, newTokenB: string) => {
+    async (newTokenA: string, newTokenB: string,symbol:string) => {
       if (
         !signer ||
         !isInitialized ||
@@ -142,13 +169,15 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
       try {
         const signerAddress = await signer.getAddress();
 
+        
+
         // Fetch new balances and allowances
         const [balanceA, balanceB, allowanceA, allowanceB, symbolA, symbolB] =
           await Promise.all([
-            getBalanceA(signerAddress, newTokenA),
-            getBalanceB(signerAddress, newTokenB),
-            getAllowanceA(signerAddress, POSITION_MANAGER_ADDRESS, newTokenA),
-            getAllowanceB(signerAddress, POSITION_MANAGER_ADDRESS, newTokenB),
+            getBalanceA(signerAddress, newTokenA,symbol),
+            getBalanceB(signerAddress, newTokenB,symbol),
+            getAllowanceA(signerAddress, POSITION_MANAGER_ADDRESS, newTokenA,symbol),
+            getAllowanceB(signerAddress, POSITION_MANAGER_ADDRESS, newTokenB,symbol),
             getSymbolA(newTokenA),
             getSymbolB(newTokenB),
           ]);
@@ -179,6 +208,21 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
     ],
   );
 
+  // Function to fetch pool address
+  const fetchPool = useCallback(async (tokenA: Token, tokenB: Token, fee: number) => {
+    if (!signer || !isInitialized) return null;
+    try {
+     
+      
+      const poolAddress = await getPoolAddress(tokenA, tokenB, fee);
+      return poolAddress;
+    } catch (error) {
+      console.error("Error fetching pool address:", error);
+      toast.error("Failed to fetch pool address");
+      return null;
+    }
+  }, [signer, isInitialized, getPoolAddress]);
+
   // Fetch balances and allowances
   const fetchBalancesAndAllowances = useCallback(async () => {
     if (
@@ -194,15 +238,16 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
 
       // Fetch balances and allowances for both tokens
       if (!tokenA || !tokenB) return;
+     
       const [balanceA, balanceB, allowanceA, allowanceB, symbolA, symbolB] =
         await Promise.all([
 
-          getBalanceA(signerAddress, tokenA.address),
-          getBalanceB(signerAddress, tokenB.address),
-          getAllowanceA(signerAddress, POSITION_MANAGER_ADDRESS, tokenA.address),
-          getAllowanceB(signerAddress, POSITION_MANAGER_ADDRESS, tokenB.address),
-          getSymbolA(tokenA.address),
-          getSymbolB(tokenB.address),
+          getBalanceA(signerAddress, tokenA.id,tokenA.symbol),
+          getBalanceB(signerAddress, tokenB.id,tokenB.symbol),
+          getAllowanceA(signerAddress, POSITION_MANAGER_ADDRESS, tokenA.id,tokenA.symbol),
+          getAllowanceB(signerAddress, POSITION_MANAGER_ADDRESS, tokenB.id,tokenB.symbol),
+          getSymbolA(tokenA.id),
+          getSymbolB(tokenB.id),
         ]);
 
       // Update state with fetched values
@@ -210,8 +255,8 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
       setBalanceB(balanceB.toString());
       setAllowanceA(allowanceA.toString());
       setAllowanceB(allowanceB.toString());
-      setDecimalsA(await getDecimalTokenIn(tokenA.address));
-      setDecimalsB(await getDecimalTokenOut(tokenB.address));
+      setDecimalsA(await getDecimalTokenIn(tokenA.id));
+      setDecimalsB(await getDecimalTokenOut(tokenB.id));
       setSymbolA(symbolA);
       setSymbolB(symbolB);
     } catch (error) {
@@ -237,13 +282,14 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
   }, [fetchBalancesAndAllowances]);
 
   const handleApproveTokenA = async () => {
+    
     if (!amountA || !tokenA) return; 
     try {
       setIsProcessing(true);
       await approveA(
         POSITION_MANAGER_ADDRESS,
         ethers.parseUnits(amountA, decimalsA),
-        tokenA.address,
+        tokenA.id,
       );
       toast.success("Token A approved successfully");
       await fetchBalancesAndAllowances();
@@ -262,7 +308,7 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
       await approveB(
         POSITION_MANAGER_ADDRESS,
         ethers.parseUnits(amountB, decimalsB),
-        tokenB.address,
+        tokenB.id,
       );
       toast.success("Token B approved successfully");
       await fetchBalancesAndAllowances();
@@ -306,7 +352,7 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
       if (!isTokenBApproved()) {
         toast.info("Please approve Token B first");
         return;
-      }debugger
+      }
 
       // Double-check balances before proceeding
       if (!hasSufficientBalance()) {
@@ -321,17 +367,17 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
       if (!signerAddress) throw new Error("No signer address available");
       
       // Sort tokens by address (required by Uniswap V3)
-      const token0 = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() ? tokenA : tokenB;
-      const token1 = tokenA.address.toLowerCase() < tokenB.address.toLowerCase() ? tokenB : tokenA;
+      const token0 = tokenA.id.toLowerCase() < tokenB.id.toLowerCase() ? tokenA : tokenB;
+      const token1 = tokenA.id.toLowerCase() < tokenB.id.toLowerCase() ? tokenB : tokenA;
       
       // Parse amounts based on token order
       const amount0Desired = token0 === tokenA 
-        ? ethers.parseUnits(amountA, tokenA.decimals)
-        : ethers.parseUnits(amountB, tokenB.decimals);
+        ? ethers.parseUnits(amountA, Number(tokenA.decimals))
+        : ethers.parseUnits(amountB, Number(tokenB.decimals));
       const amount1Desired = token0 === tokenA 
-        ? ethers.parseUnits(amountB, tokenB.decimals)
-        : ethers.parseUnits(amountA, tokenA.decimals);
-debugger
+        ? ethers.parseUnits(amountB, Number(tokenB.decimals))
+        : ethers.parseUnits(amountA, Number(tokenA.decimals));
+
       // Calculate minimum amounts with slippage
       const slippageBasisPoints = BigInt(Math.floor(slippage * 100));
       const amount0Min = (amount0Desired * (10000n - slippageBasisPoints)) / 10000n;
@@ -343,8 +389,8 @@ debugger
 // const tickUpper = base + 200 * rangeMultiplier;
 
       const params = {
-        token0: token0.address,
-        token1: token1.address,
+        token0: token0.id,
+        token1: token1.id,
         fee: Number(fee),
         tickLower: Number(tickLower),
         tickUpper: Number(tickUpper),
@@ -358,20 +404,52 @@ debugger
       
      
       // Call the mint function with all required parameters
-      const tx = await mint({
+      let tx;
+   if(isMulitiCallOn) {
+
+
+       if (!contract) throw new Error("Contract not initialized");
+       
+        const mintData = contract.interface.encodeFunctionData(
+          "mint",
+          [{
+            token0: params.token0,
+            token1: params.token1,
+            fee: params.fee,
+            tickLower: params.tickLower,
+            tickUpper: params.tickUpper,
+            amount0Desired: params.amount0Desired,
+            amount1Desired: params.amount1Desired,
+            amount0Min: params.amount0Min,
+            amount1Min: params.amount1Min,
+            recipient: params.recipient,
+            deadline: params.deadline,
+          }]
+        );
+        const value = token0.symbol === "ETH" ? amount0Desired 
+             : token1.symbol === "ETH" ? amount1Desired 
+             : 0n;
+        tx = await multicall([mintData],value);
+
+   }else
+    {
+       const value = token0.symbol === "ETH" ? amount0Desired 
+             : token1.symbol === "ETH" ? amount1Desired 
+             : 0n;
+    tx = await mint({
         token0: params.token0,
         token1: params.token1,
         fee: params.fee,
-        tickLower: params.tickLower,
-        tickUpper: params.tickUpper,
+        tickLower:  params.tickLower,
+        tickUpper:  params.tickUpper,
         amount0Desired: params.amount0Desired,
         amount1Desired: params.amount1Desired,
         amount0Min: 0n,
         amount1Min: 0n,
         recipient: params.recipient,
         deadline: params.deadline,
-      });
-      debugger
+      },value);}
+      
       const receipt = await tx.wait();
 
       toast.success("Liquidity added successfully!");
@@ -429,19 +507,19 @@ debugger
       // First check if the position manager is approved
       const signerAddress = await signer?.getAddress();
       if (!signerAddress) throw new Error("No signer address available");
-      debugger
+      
       const isApproved = await isApprovedForAll(
         signerAddress,
         POSITION_MANAGER_ADDRESS
       );
 
-      // if (!isApproved) {
-      //   toast.info("Approving position manager...");
-      //   const approveTx = await approve(POSITION_MANAGER_ADDRESS, BigInt(tokenId));
-      //   if(approveTx){
-      //     toast.success("Position manager approved successfully");
-      //   }
-      // }
+      if (!isApproved) {
+        toast.info("Approving position manager...");
+        const approveTx = await approve(POSITION_MANAGER_ADDRESS, BigInt(tokenId));
+        if(approveTx){
+          toast.success("Position manager approved successfully");
+        }
+      }
 
       // Get position details
       const position = await positions(BigInt(tokenId));
@@ -475,10 +553,12 @@ debugger
       });
 
       // Burn the position
-    const burnTx = await burn(BigInt(tokenId));
+    if(collectTx){
+      const burnTx = await burn(BigInt(tokenId));
+      setTxHash(burnTx.hash);
+    }
 
       toast.success("Liquidity removed successfully!");
-      setTxHash(burnTx.hash);
       setTokenId("");
       setLiquidity("");
       
@@ -511,7 +591,7 @@ debugger
       setAmountB(oldAmountA);
 
       // Fetch new balances and allowances for the swapped tokens
-      await updateTokenData(oldTokenB.address, oldTokenA.address);
+      await updateTokenData(oldTokenB.id, oldTokenA.id,oldTokenA.symbol);
     } catch (error) {
       console.error("Error swapping tokens:", error);
       toast.error("Failed to swap tokens");
@@ -539,8 +619,8 @@ debugger
     }
 
     try {
-      const decimalsIn = await getDecimalTokenIn(tokenA.address);
-      const decimalsOut = await getDecimalTokenOut(tokenB.address);
+      const decimalsIn = await getDecimalTokenIn(tokenA.id);
+      const decimalsOut = await getDecimalTokenOut(tokenB.id);
 
       // Validate amount is a positive number
       if (isNaN(Number(amountA)) || Number(amountA) <= 0) {
@@ -553,8 +633,8 @@ debugger
       }
 
       const quote = await quoteExactInputSingle(
-        tokenA.address,
-        tokenB.address,
+        tokenA.id,
+        tokenB.id,
         Number(fee),
         amountA,
         '0',
@@ -583,13 +663,10 @@ debugger
     quoteExactInputSingle,
   ]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      getAmountOut();
-    }, 500);
+useEffect(() => {
+  getAmountOut();
+}, [amountA, tokenA, tokenB, fee, slippage, signer]);
 
-    return () => clearTimeout(timer);
-  }, [getAmountOut]);
 
   // Format balance for display
   const formatDisplayBalance = (balance: string, decimals: number) => {
@@ -618,7 +695,7 @@ debugger
       };
     }
 
-    if (!isTokenAApproved()) {
+    if (!isMulitiCallOn && !isTokenAApproved()) {
       return {
         disabled: isProcessing,
         text: `Approve Token A`,
@@ -626,7 +703,7 @@ debugger
       };
     }
 
-    if (!isTokenBApproved()) {
+    if (!isMulitiCallOn && !isTokenBApproved()) {
       return {
         disabled: isProcessing,
         text: `Approve Token B`,
@@ -656,8 +733,266 @@ debugger
             onSlippageChange={setSlippage}
             deadline={deadline}
             onDeadlineChange={setDeadline}
+            isMulitiCallOn={isMulitiCallOn}
+            setIsMulitiCallOn={setIsMulitiCallOn}
           />
         </div>
+
+       
+
+        {/* Step 1: Select pair and fee */}
+        {step === 1 && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-medium">Token A</label>
+            </div>
+            <div className="w-40">
+              <TokenSelector
+                selectedToken={tokenA}
+                onSelect={handleTokenAChange}
+                excludeToken={tokenB}
+                label="Token A"
+                className="w-40"
+              />
+            </div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-medium">Token B</label>
+            </div>
+            <div className="w-40">
+              <TokenSelector
+                selectedToken={tokenB}
+                onSelect={handleTokenBChange}
+                excludeToken={tokenA}
+                label="Token B"
+                className="w-40"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Fee Tier</label>
+              <select
+                value={fee}
+                onChange={(e) => setFee(Number(e.target.value))}
+                className="w-full p-2 border rounded"
+              >
+                <option value={500}>0.05%</option>
+                <option value={3000}>0.3%</option>
+                <option value={10000}>1%</option>
+              </select>
+            </div>
+            <button
+              className={`w-full py-3 px-4 rounded-xl font-medium text-white bg-blue-600 hover:bg-blue-700`}
+              disabled={!tokenA || !tokenB || !fee}
+              onClick={async () => {
+                if (!tokenA || !tokenB) return;
+                
+                setIsProcessing(true);
+                try {
+                  const poolAddress = await fetchPool(tokenA, tokenB, fee);
+                  if (poolAddress) {
+                    setPoolAddress(poolAddress);
+                    setStep(2);
+                  } else {
+                    toast.error("Pool not found for selected pair");
+                  }
+                } catch (error) {
+                  console.error("Error fetching pool:", error);
+                  toast.error("Failed to fetch pool");
+                } finally {
+                  setIsProcessing(false);
+                }
+              }}
+            >
+              Continue
+            </button>
+          </div>
+        )}
+      {/* Stepper */}
+    { activeTab === "add" && <div className="flex items-center mb-4">
+         
+         <button onClick={() => setStep(1)} className={`flex items-center ${step === 1 ? 'font-bold text-blue-600' : 'text-gray-400'}`}>1. Select pair & fee</button>
+          <div className="mx-2">→</div>
+          <button onClick={() => setStep(1)} className={`flex items-center ${step === 2 ? 'font-bold text-blue-600' : 'text-gray-400'}`}>2. Set range & deposit</button>
+        </div>}
+        {/* Step 2: Add liquidity (range, amounts, etc.) */}
+        {step === 2 && poolAddress && (
+          <div>
+       
+              <div className="flex border-b mb-4">
+              <button
+                className={`px-4 py-2 ${activeTab === "add" ? "border-b-2 border-blue-500 font-medium" : "text-gray-500"}`}
+                onClick={() => setActiveTab("add")}
+              >
+                Add Liquidity
+              </button>
+              <button
+                className={`px-4 py-2 ${activeTab === "remove" ? "border-b-2 border-blue-500 font-medium" : "text-gray-500"}`}
+                onClick={() => setActiveTab("remove")}
+              >
+                Manage Liquidity Position
+              </button>
+            </div>
+    
+            {activeTab === "add" ? (
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold mb-4">Add Liquidity</h2>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-sm font-medium">{symbolA}</label>
+                    <span className="text-xs text-gray-500">
+                      Balance: {formatDisplayBalance(balanceA, decimalsA)} {symbolA}
+                    </span>
+                  </div>
+                
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-sm font-medium">{symbolB}</label>
+                    <span className="text-xs text-gray-500">
+                      Balance: {formatDisplayBalance(balanceB, decimalsB)} {symbolB}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-sm font-medium">Fee Tier</label>
+                    <span className="text-xs text-gray-500">
+                      {fee/10000}%
+                    </span>
+                  </div>
+                  <div className="flex justify-center -my-2">
+                    <button
+                      onClick={handleSwapTokens}
+                      disabled={isProcessing}
+                      className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full disabled:opacity-50"
+                      type="button"
+                      aria-label="Swap tokens"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 text-gray-600"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Price Range</label>
+                  <TickRange
+                    tickLower={tickLower}
+                    tickUpper={tickUpper}
+                    onTickLowerChange={setTickLower}
+                    onTickUpperChange={setTickUpper}
+                    
+                    signer={signer}
+                    poolAddress={poolAddress}
+                  />
+                </div>
+                  </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Amount A</label>
+                  <input
+                    type="text"
+                    value={amountA}
+                    onChange={(e) => setAmountA(e.target.value)}
+                    placeholder="0.0"
+                    className="w-full p-2 border rounded"
+                  />
+                  {amountA &&
+                    BigInt(balanceA) <
+                      BigInt(formatTokenAmount(amountA, decimalsA)) && (
+                      <p className="mt-1 text-xs text-red-500">
+                        Insufficient balance
+                      </p>
+                    )}
+                </div>
+
+                
+    
+                <div>
+                  <label className="block text-sm font-medium mb-1">Amount B</label>
+                  <input
+                    type="text"
+                    value={amountB}
+                    onChange={(e) => setAmountB(e.target.value)}
+                    placeholder="0.0"
+                    className="w-full p-2 border rounded"
+                  />
+                  {amountB &&
+                    BigInt(balanceB) <
+                      BigInt(formatTokenAmount(amountB, decimalsB)) && (
+                      <p className="mt-1 text-xs text-red-500">
+                        Insufficient balance
+                      </p>
+                    )}
+                </div>
+    
+         
+         
+    
+                <button
+                  onClick={buttonState.onClick}
+                  disabled={buttonState.disabled}
+                  className={`w-full py-3 px-4 rounded-xl font-medium text-white ${
+                    buttonState.disabled
+                        ? 'w-full py-3 px-4 rounded-xl font-medium text-white bg-red-500 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  {isProcessing ? "Processing..." : buttonState.text}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold mb-4"> Manage Position</h2>
+    
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Position ID
+                  </label>
+                  <input
+                    type="text"
+                    value={tokenId}
+                    onChange={(e) => setTokenId(e.target.value)}
+                    placeholder="Position ID"
+                    className="w-full p-2 border rounded"
+                  />
+                </div>
+    
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Liquidity Amount
+                  </label>
+                  <input
+                    type="text"
+                    value={liquidity}
+                    onChange={(e) => setLiquidity(e.target.value)}
+                    placeholder="0.0"
+                    className="w-full p-2 border rounded"
+                  />
+                </div>
+    
+                <button
+                  onClick={handleRemoveLiquidity}
+                  disabled={isProcessing}
+                  className={`w-full py-3 px-4 rounded-xl font-medium text-white ${
+                    buttonState.disabled
+                        ? 'bg-gray-300 cursor-not-allowed'
+                        : 'bg-red-600 hover:bg-red-700'
+                  }`}
+                >
+                  {isProcessing ? "Processing..." : "Remove Liquidity"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Transaction Status */}
         {isProcessing && (
           <div className="p-3 bg-blue-100 text-blue-800 rounded">
@@ -683,220 +1018,7 @@ debugger
           <div className="p-3 bg-red-100 text-red-800 rounded">{error}</div>
         )}
 
-        <div className="flex border-b mb-4">
-          <button
-            className={`px-4 py-2 ${activeTab === "add" ? "border-b-2 border-blue-500 font-medium" : "text-gray-500"}`}
-            onClick={() => setActiveTab("add")}
-          >
-            Add Liquidity
-          </button>
-          <button
-            className={`px-4 py-2 ${activeTab === "remove" ? "border-b-2 border-blue-500 font-medium" : "text-gray-500"}`}
-            onClick={() => setActiveTab("remove")}
-          >
-            Remove Liquidity
-          </button>
-        </div>
-
-        {activeTab === "add" ? (
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold mb-4">Add Liquidity</h2>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center mb-1">
-                <label className="block text-sm font-medium">Token A</label>
-                <span className="text-xs text-gray-500">
-                  Balance: {formatDisplayBalance(balanceA, decimalsA)} {symbolA}
-                </span>
-              </div>
-              <div className="w-40">
-                <TokenSelector
-                  selectedToken={tokenA}
-                  onSelect={handleTokenAChange}
-                  excludeToken={tokenB}
-                  label="Token A"
-                  className="w-40"
-                />
-              </div>
-
-              <div className="flex justify-between items-center mb-1">
-                <label className="block text-sm font-medium">Token B</label>
-                <span className="text-xs text-gray-500">
-                  Balance: {formatDisplayBalance(balanceB, decimalsB)} {symbolB}
-                </span>
-              </div>
-              <div className="w-40">
-                <TokenSelector
-                  selectedToken={tokenB}
-                  onSelect={handleTokenBChange}
-                  excludeToken={tokenA}
-                  label="Token B"
-                  className="w-40"
-                />
-              </div>
-              <div className="flex justify-center -my-2">
-                <button
-                  onClick={handleSwapTokens}
-                  disabled={isProcessing}
-                  className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full disabled:opacity-50"
-                  type="button"
-                  aria-label="Swap tokens"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-gray-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Amount A</label>
-              <input
-                type="text"
-                value={amountA}
-                onChange={(e) => setAmountA(e.target.value)}
-                placeholder="0.0"
-                className="w-full p-2 border rounded"
-              />
-              {amountA &&
-                BigInt(balanceA) <
-                  BigInt(formatTokenAmount(amountA, decimalsA)) && (
-                  <p className="mt-1 text-xs text-red-500">
-                    Insufficient balance
-                  </p>
-                )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Amount B</label>
-              <input
-                type="text"
-                value={amountB}
-                onChange={(e) => setAmountB(e.target.value)}
-                placeholder="0.0"
-                className="w-full p-2 border rounded"
-              />
-              {amountB &&
-                BigInt(balanceB) <
-                  BigInt(formatTokenAmount(amountB, decimalsB)) && (
-                  <p className="mt-1 text-xs text-red-500">
-                    Insufficient balance
-                  </p>
-                )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Fee Tier</label>
-              <select
-                value={fee}
-                onChange={(e) => setFee(Number(e.target.value))}
-                className="w-full p-2 border rounded"
-              >
-                <option value={500}>0.05%</option>
-                <option value={3000}>0.3%</option>
-                <option value={10000}>1%</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Tick Lower (e.g., -887272 for full range)
-              </label>
-              <input
-                type="number"
-                value={tickLower}
-                onChange={(e) => setTickLower(e.target.value)}
-                placeholder="Tick lower bound"
-                className="w-full p-2 border rounded"
-                min="-887272"
-                max="887272"
-                step="60"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Tick Upper (e.g., 887272 for full range)
-              </label>
-              <input
-                type="number"
-                value={tickUpper}
-                onChange={(e) => setTickUpper(e.target.value)}
-                placeholder="Tick upper bound"
-                className="w-full p-2 border rounded"
-                min="-887272"
-                max="887272"
-                step="60"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Common tick spacings: 10 for 1%, 60 for 0.3%, 200 for 1% fee tiers
-              </p>
-            </div>
-
-            <button
-              onClick={buttonState.onClick}
-              disabled={buttonState.disabled}
-              className={`w-full py-3 px-4 rounded-xl font-medium text-white ${
-                buttonState.disabled
-                    ? 'w-full py-3 px-4 rounded-xl font-medium text-white bg-red-500 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700'
-              }`}
-            >
-              {isProcessing ? "Processing..." : buttonState.text}
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold mb-4">Remove Liquidity</h2>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Position ID
-              </label>
-              <input
-                type="text"
-                value={tokenId}
-                onChange={(e) => setTokenId(e.target.value)}
-                placeholder="Position ID"
-                className="w-full p-2 border rounded"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Liquidity Amount
-              </label>
-              <input
-                type="text"
-                value={liquidity}
-                onChange={(e) => setLiquidity(e.target.value)}
-                placeholder="0.0"
-                className="w-full p-2 border rounded"
-              />
-            </div>
-
-            <button
-              onClick={handleRemoveLiquidity}
-              disabled={isProcessing}
-              className={`w-full py-3 px-4 rounded-xl font-medium text-white ${
-                buttonState.disabled
-                    ? 'bg-gray-300 cursor-not-allowed'
-                    : 'bg-red-600 hover:bg-red-700'
-              }`}
-            >
-              {isProcessing ? "Processing..." : "Remove Liquidity"}
-            </button>
-          </div>
-        )}
+   
       </div>
     </div>
   );

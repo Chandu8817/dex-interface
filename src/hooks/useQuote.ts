@@ -12,21 +12,18 @@ export const useQuote = (signer: JsonRpcSigner | null) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log("useEffect in useQuote - signer changed:", !!signer);
     if (signer) {
       try {
         if (!QUOTE_ADDRESS) {
           throw new Error("Quote contract address not configured");
         }
-        
-        console.log("Creating new Quote contract instance with address:", QUOTE_ADDRESS);
+
         const contractInstance = new ethers.Contract(
           QUOTE_ADDRESS,
           QUOTE_ABI,
           signer
         );
-        
-        console.log("Quote contract instance created:", contractInstance);
+
         setContract(contractInstance);
         setError(null);
       } catch (err) {
@@ -34,7 +31,6 @@ export const useQuote = (signer: JsonRpcSigner | null) => {
         setError("Failed to initialize Quote contract");
       }
     } else {
-      console.log("No signer available, setting contract to null");
       setContract(null);
     }
   }, [signer]);
@@ -51,70 +47,39 @@ export const useQuote = (signer: JsonRpcSigner | null) => {
     if (!contract) {
       throw new Error("Contract not initialized");
     }
-
+    
     try {
       setLoading(true);
       setError(null);
-
-      // Convert amount to wei
-      const amountInWei = ethers.parseUnits(amountIn, decimalsIn);
+      const amountInWei = ethers.parseUnits(amountIn, Number(decimalsIn));
+      let sqrtPriceLimit = BigInt(sqrtPriceLimitX96);
+      if (sqrtPriceLimit < 0n || sqrtPriceLimit > 2n ** 160n - 1n) {
+        throw new Error("sqrtPriceLimitX96 out of range");
+      }
       
-      // Convert sqrtPriceLimitX96 to BigInt and ensure it's a valid uint160
-      let sqrtPriceLimit: bigint;
-      try {
-        sqrtPriceLimit = BigInt(sqrtPriceLimitX96);
-        // Ensure it's within uint160 range
-        if (sqrtPriceLimit < 0n || sqrtPriceLimit > 2n ** 160n - 1n) {
-          throw new Error("sqrtPriceLimitX96 out of range");
+      const quote = await contract.quoteExactInputSingle.staticCall(
+        {
+          tokenIn: tokenIn,
+          tokenOut: tokenOut,
+          amountIn: amountInWei,
+          fee: fee,
+          sqrtPriceLimitX96: sqrtPriceLimit,
         }
-      } catch (err) {
-        
-        throw new Error(`Invalid sqrtPriceLimitX96 value: ${sqrtPriceLimitX96}`);
-      }
-      
-      console.log("Calling quoteExactInputSingle with params:", {
-        tokenIn,
-        tokenOut,
-        fee,
-        amountInWei: amountInWei.toString(),
-        sqrtPriceLimit: sqrtPriceLimit.toString()
-      });
-      
-      // Get the signer's address
-      const signer = contract.runner as ethers.JsonRpcSigner;
-      if (!signer) {
-        throw new Error("No signer available");
-      }
-      
-  
-      
-      // Call the contract with the proper signer
-        const quote = await contract.quoteExactInputSingle.staticCall(
-          {
-            tokenIn: tokenIn,
-            tokenOut: tokenOut,
-            amountIn: amountInWei,
-            fee: fee,
-            sqrtPriceLimitX96: 0n,
-          }
-        );
-      
-      console.log("Quote successful, amountOut:", quote.amountOut.toString());
-      
+      );
+
+
       return {
-        amountOut: ethers.formatUnits(quote.amountOut.toString(), decimalsOut),
+        amountOut: ethers.formatUnits(quote.amountOut.toString(), Number(decimalsOut)),
         amountOutWei: quote.amountOut.toString()
       };
     } catch (err: any) {
-     
-      
       let errorMessage = "Failed to get quote";
       if (err.reason) {
         errorMessage = err.reason;
       } else if (err.message) {
         errorMessage = err.message;
       }
-      
+
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -126,7 +91,7 @@ export const useQuote = (signer: JsonRpcSigner | null) => {
     tokenIn: string,
     tokenOut: string,
     fee: number,
-    amountIn: string,
+    amountOut: string,
     sqrtPriceLimitX96: string = '0',
     decimalsIn: number = 18,
     decimalsOut: number = 18
@@ -139,29 +104,84 @@ export const useQuote = (signer: JsonRpcSigner | null) => {
       setLoading(true);
       setError(null);
 
-      const amountInWei = ethers.parseUnits(amountIn, decimalsIn);
-      const sqrtPriceLimit = ethers.getBigInt(sqrtPriceLimitX96);
-
-      const amountOut = await contract.quoteExactOutputSingle.staticCall(
-        tokenIn,
+      const amountOutWei = ethers.parseUnits(amountOut, Number(decimalsOut));
+      let sqrtPriceLimit = BigInt(sqrtPriceLimitX96);
+      if (sqrtPriceLimit < 0n || sqrtPriceLimit > 2n ** 160n - 1n) {
+        throw new Error("sqrtPriceLimitX96 out of range");
+      }
+      debugger
+      const amountIn = await contract.quoteExactOutputSingle.staticCall(
+        [tokenIn,
         tokenOut,
+        amountOutWei,
         fee,
-        amountInWei,
-        sqrtPriceLimit
+        sqrtPriceLimit]
       );
 
       return {
-        amountOut: ethers.formatUnits(amountOut, decimalsOut),
-        amountInWei: amountIn.toString()
+        amountIn: ethers.formatUnits(amountIn.amountIn.toString(), Number(decimalsIn)),
+        amountInWei: amountIn.amountIn.toString()
       };
     } catch (err: any) {
-   
+
       setError(err.message || "Failed to get quote");
       throw err;
     } finally {
       setLoading(false);
     }
   };
+
+  const quoteExactInput = async (
+    path: string,
+    amountIn: bigint
+
+  ) => {
+    if (!contract) {
+      throw new Error("Contract not initialized");
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      const tx = await contract.quoteExactInput.staticCall(path, amountIn)
+
+      return {
+
+        amountOutWei: tx.amountOut.toString()
+      };
+
+    } catch (error: any) {
+      setError(error.message || "Failed to get quote");
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const quoteExactOutput = async (
+    path: string,
+    amountOut: bigint
+
+  ) => {
+    if (!contract) {
+      throw new Error("Contract not initialized");
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      const tx = await contract.quoteExactOutput.staticCall(path, amountOut)
+
+      return {
+
+        amountInWei: tx.amountIn.toString()
+      };
+
+    } catch (error: any) {
+      setError(error.message || "Failed to get quote");
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const getQuote = async (
     tokenIn: string,
@@ -179,8 +199,10 @@ export const useQuote = (signer: JsonRpcSigner | null) => {
     // Main functions
     quoteExactInputSingle,
     quoteExactOutputSingle,
+    quoteExactInput,
+    quoteExactOutput,
     getQuote, // For backward compatibility
-    
+
     // State
     loading,
     error,

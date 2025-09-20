@@ -35,15 +35,13 @@ export function usePool(signer: JsonRpcSigner | null) {
 // const ratio = Number(reserve1) / Number(reserve0);  
 
 // correct formula
-const amount1 = 4500_000000n;        // USDC (6 decimals)
-const amount0 = 1_000000000000000000n; // WETH (18 decimals)
 
-const sqrtPriceX96 = encodeSqrtRatioX96(amount1, amount0);
+const sqrtPriceX96 = encodeSqrtRatioX96(reserve1, reserve0);
 console.log(sqrtPriceX96.toString());
 
 
 console.log(sqrtPriceX96.toString());
-    debugger
+    
     try {
       const tx = await poolContract.initialize(sqrtPriceX96);
       await tx.wait();
@@ -64,6 +62,27 @@ console.log(sqrtPriceX96.toString());
     return slot0.sqrtPriceX96 > 0n;
   };
 
+  const getTickSpacing = async (poolAddress: string) => {
+    if (!signer || !poolAddress) return null;
+    const poolContract = new ethers.Contract(poolAddress, POOL_ABI, signer);
+    const tickSpacing = await poolContract.tickSpacing();
+    return tickSpacing;
+  };
+  
+
+  const getSlot0 = async (poolAddress: string) => {
+    if (!signer || !poolAddress) return null;
+try{    
+  
+  const poolContract = new ethers.Contract(poolAddress, POOL_ABI, signer);
+    const slot0 = await poolContract.slot0();
+    return slot0;
+} catch (err) {
+  console.error("Error getting slot0:", err);
+  return null;
+}
+  };
+
  // target price = token1 per token0
  function encodeSqrtRatioX96(amount1: bigint, amount0: bigint) {
   if (amount0 === 0n) throw new Error("amount0 cannot be 0");
@@ -73,11 +92,21 @@ console.log(sqrtPriceX96.toString());
   return BigInt(Math.floor(sqrt * Q96));
 }
 
+const getFee = async (poolAddress: string) => {
+  if (!signer || !poolAddress) return null;
+  const poolContract = new ethers.Contract(poolAddress, POOL_ABI, signer);
+  const fee = await poolContract.fee();
+  return fee;
+}
+
  
   return {
     initializePool,
     isPoolInitialized,
     isLoading: loading,
     error,
+    getSlot0,
+    getTickSpacing,
+    getFee
   };
 }

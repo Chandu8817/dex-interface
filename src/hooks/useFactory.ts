@@ -41,14 +41,14 @@ export function useFactory(signer: JsonRpcSigner | null) {
       setIsLoading(true);
       setError(null);
 
-      const [token0, token1] = tokenA.address.toLowerCase() < tokenB.address.toLowerCase()
+      const [token0, token1] = tokenA.id.toLowerCase() < tokenB.id.toLowerCase()
         ? [tokenA, tokenB]
         : [tokenB, tokenA];
 
       if (!factoryContract) {
         throw new Error("Factory contract not initialized");
       }
-      const poolAddress = await factoryContract.getPool(token0.address, token1.address, feeTier);
+      const poolAddress = await factoryContract.getPool(token0.id, token1.id, feeTier);
 
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const code = await provider.getCode(poolAddress);
@@ -72,11 +72,11 @@ export function useFactory(signer: JsonRpcSigner | null) {
         throw new Error("Factory contract not initialized");
       }
 
-      const [token0, token1] = tokenA.address.toLowerCase() < tokenB.address.toLowerCase()
+      const [token0, token1] = tokenA.id.toLowerCase() < tokenB.id.toLowerCase()
         ? [tokenA, tokenB]
         : [tokenB, tokenA];
     
-      const tx = await factoryContract.createPool(token0.address, token1.address, feeTier);
+      const tx = await factoryContract.createPool(token0.id, token1.id, feeTier);
       await tx.wait();
       const newPoolAddress = await getPoolAddress(token0, token1, feeTier);
       console.log('Pool created at:', newPoolAddress);

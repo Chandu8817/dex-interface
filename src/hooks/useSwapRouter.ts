@@ -2,45 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
 import { JsonRpcSigner } from "ethers";
 import SWAP_ROUTER_ABI from "../abis/SwapRouter.json";
-
-// Types
-type ExactInputSingleParams = {
-  tokenIn: string;
-  tokenOut: string;
-  fee: number;
-  recipient: string;
-  deadline: number;
-  amountIn: bigint;
-  amountOutMinimum: bigint;
-  sqrtPriceLimitX96?: bigint;
-};
-
-type ExactInputParams = {
-  path: string;
-  recipient: string;
-  deadline: number;
-  amountIn: bigint;
-  amountOutMinimum: bigint;
-};
-
-type ExactOutputSingleParams = {
-  tokenIn: string;
-  tokenOut: string;
-  fee: number;
-  recipient: string;
-  deadline: number;
-  amountOut: bigint;
-  amountInMaximum: bigint;
-  sqrtPriceLimitX96?: bigint;
-};
-
-type ExactOutputParams = {
-  path: string;
-  recipient: string;
-  deadline: number;
-  amountOut: bigint;
-  amountInMaximum: bigint;
-};
+import type { ExactInputSingleParams, ExactInputParams, ExactOutputSingleParams, ExactOutputParams } from "../types";
 
 // Contract address from environment variables
 export const SWAP_ROUTER_ADDRESS = import.meta.env.VITE_SWAP_ROUTER_ADDRESS;
@@ -97,13 +59,13 @@ export const useSwapRouter = (signer: JsonRpcSigner | null) => {
 
   // Exact Input Single
   const exactInputSingle = useCallback(
-    async (params: ExactInputSingleParams) => {
+    async (params: ExactInputSingleParams,value:bigint) => {
       return executeContractMethod(async () => {
         if (!contract) throw new Error("Contract not initialized");
         const tx = await contract.exactInputSingle({
           ...params,
           sqrtPriceLimitX96: params.sqrtPriceLimitX96 || 0n,
-        });
+        },{value: value});
         return await tx.wait();
       });
     },
@@ -112,10 +74,10 @@ export const useSwapRouter = (signer: JsonRpcSigner | null) => {
 
   // Exact Input
   const exactInput = useCallback(
-    async (params: ExactInputParams) => {
+    async (params: ExactInputParams,value:bigint) => {
       return executeContractMethod(async () => {
         if (!contract) throw new Error("Contract not initialized");
-        const tx = await contract.exactInput(params);
+        const tx = await contract.exactInput(params,{value: value});
         return await tx.wait();
       });
     },
@@ -124,13 +86,14 @@ export const useSwapRouter = (signer: JsonRpcSigner | null) => {
 
   // Exact Output Single
   const exactOutputSingle = useCallback(
-    async (params: ExactOutputSingleParams) => {
+    async (params: ExactOutputSingleParams,value:bigint) => {
       return executeContractMethod(async () => {
         if (!contract) throw new Error("Contract not initialized");
+        
         const tx = await contract.exactOutputSingle({
           ...params,
           sqrtPriceLimitX96: params.sqrtPriceLimitX96 || 0n,
-        });
+        },{value: value});
         return await tx.wait();
       });
     },
@@ -139,10 +102,10 @@ export const useSwapRouter = (signer: JsonRpcSigner | null) => {
 
   // Exact Output
   const exactOutput = useCallback(
-    async (params: ExactOutputParams) => {
+    async (params: ExactOutputParams,value:bigint) => {
       return executeContractMethod(async () => {
         if (!contract) throw new Error("Contract not initialized");
-        const tx = await contract.exactOutput(params);
+        const tx = await contract.exactOutput(params,{value: value});
         return await tx.wait();
       });
     },
@@ -151,10 +114,10 @@ export const useSwapRouter = (signer: JsonRpcSigner | null) => {
 
   // Multicall
   const multicall = useCallback(
-    async (data: string[]) => {
+    async (data: string[],value:bigint) => {
       return executeContractMethod(async () => {
         if (!contract) throw new Error("Contract not initialized");
-        return await contract.multicall.staticCall(data);
+        return await contract.multicall(data,{value: value});
       });
     },
     [executeContractMethod, contract]
@@ -194,6 +157,7 @@ export const useSwapRouter = (signer: JsonRpcSigner | null) => {
     // ETH handling
     refundETH,
     unwrapWETH9,
+    contract,
     
     // State
     loading,
