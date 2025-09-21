@@ -5,7 +5,7 @@ import ERC20_ABI from "../abis/ERC20.json";
 
 
 
-export const useERC20 = (signer: JsonRpcSigner | null) => {
+export const useERC20 = ( signer: JsonRpcSigner | null) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 

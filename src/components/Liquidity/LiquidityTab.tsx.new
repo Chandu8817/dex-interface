@@ -1,0 +1,164 @@
+import { useState, useEffect, useCallback } from 'react';
+import { JsonRpcSigner } from 'ethers';
+import { useAccount } from 'wagmi';
+import { Tab } from '@headlessui/react';
+import { Token } from '../../shared/types';
+import { useTokens } from '../../hooks/useTokens';
+import { TransactionStatus } from '../common';
+import { PairSelector } from './components/PairSelector';
+import { AddLiquidityForm } from './components/AddLiquidityForm';
+import { useLiquidityPosition } from './hooks/useLiquidityPosition';
+
+interface LiquidityTabProps {
+  signer: JsonRpcSigner | null;
+}
+
+type TabType = 'add' | 'remove';
+
+export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
+  const { address: account } = useAccount();
+  const { tokens, getTokenBySymbol } = useTokens();
+  
+  // State for pair selection
+  const [tokenA, setTokenA] = useState<Token | null>(null);
+  const [tokenB, setTokenB] = useState<Token | null>(null);
+  const [fee, setFee] = useState(3000); // 0.3% fee tier
+  const [activeTab, setActiveTab] = useState<TabType>('add');
+  const [step, setStep] = useState<1 | 2>(1);
+
+  // Initialize default tokens when tokens are loaded
+  useEffect(() => {
+    if (tokens.length > 0 && !tokenA && !tokenB) {
+      const defaultTokenA = getTokenBySymbol('ETH');
+      const defaultTokenB = getTokenBySymbol('USDC');
+      setTokenA(defaultTokenA as Token);
+      setTokenB(defaultTokenB as Token);
+    }
+  }, [tokens, getTokenBySymbol, tokenA, tokenB]);
+
+  // Use the useLiquidityPosition hook
+  const {
+    amountA,
+    amountB,
+    setAmountA,
+    setAmountB,
+    slippage,
+    setSlippage,
+    deadline,
+    setDeadline,
+    isLoading,
+    error,
+    txHash,
+    handleAddLiquidity,
+    resetAmounts,
+    tokenABalance,
+    tokenBBalance,
+  } = useLiquidityPosition(tokenA, tokenB, account, signer, fee);
+
+  // Handle token switch
+  const handleSwitchTokens = useCallback(() => {
+    setTokenA(tokenB);
+    setTokenB(tokenA);
+    resetAmounts();
+  }, [tokenA, tokenB, resetAmounts]);
+
+  // Handle next step
+  const handleNext = useCallback(() => {
+    if (tokenA && tokenB) {
+      setStep(2);
+    }
+  }, [tokenA, tokenB]);
+
+  // Handle back to pair selection
+  const handleBack = useCallback(() => {
+    setStep(1);
+    resetAmounts();
+  }, [resetAmounts]);
+
+  return (
+    <div className="max-w-md mx-auto bg-gray-900 rounded-2xl p-6 shadow-lg">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold">Liquidity</h2>
+      </div>
+
+      <Tab.Group>
+        <Tab.List className="flex space-x-1 rounded-xl bg-gray-800 p-1 mb-6">
+          <Tab
+            className={({ selected }) =>
+              `w-full py-2.5 text-sm font-medium leading-5 rounded-lg transition-colors duration-200 ${
+                selected
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'text-blue-100 hover:bg-gray-700 hover:text-white'
+              }`
+            }
+          >
+            Add Liquidity
+          </Tab>
+          <Tab
+            className={({ selected }) =>
+              `w-full py-2.5 text-sm font-medium leading-5 rounded-lg transition-colors duration-200 ${
+                selected
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'text-blue-100 hover:bg-gray-700 hover:text-white'
+              }`
+            }
+          >
+            Remove Liquidity
+          </Tab>
+        </Tab.List>
+        
+        <Tab.Panels className="mt-2">
+          <Tab.Panel>
+            {step === 1 ? (
+              <PairSelector
+                tokenA={tokenA}
+                tokenB={tokenB}
+                onTokenAChange={setTokenA}
+                onTokenBChange={setTokenB}
+                fee={fee}
+                onFeeChange={setFee}
+                onNext={handleNext}
+                disabled={isLoading}
+              />
+            ) : (
+              <AddLiquidityForm
+                tokenA={tokenA}
+                tokenB={tokenB}
+                amountA={amountA}
+                amountB={amountB}
+                onAmountAChange={setAmountA}
+                onAmountBChange={setAmountB}
+                onSwitchTokens={handleSwitchTokens}
+                onAddLiquidity={handleAddLiquidity}
+                onBack={handleBack}
+                slippage={slippage}
+                onSlippageChange={setSlippage}
+                deadline={deadline}
+                onDeadlineChange={setDeadline}
+                isLoading={isLoading}
+                tokenABalance={tokenABalance.formattedBalance}
+                tokenBBalance={tokenBBalance.formattedBalance}
+              />
+            )}
+          </Tab.Panel>
+          
+          <Tab.Panel>
+            <div className="text-center py-8">
+              <p className="text-gray-400">Remove liquidity coming soon</p>
+            </div>
+          </Tab.Panel>
+        </Tab.Panels>
+      </Tab.Group>
+      
+      {/* Transaction Status */}
+      <TransactionStatus
+        transactionHash={txHash || undefined}
+        status={isLoading ? 'pending' : txHash ? 'success' : 'idle'}
+        error={error || undefined}
+        message="Liquidity added successfully!"
+      />
+    </div>
+  );
+};
+
+export default LiquidityTab;

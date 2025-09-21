@@ -14,8 +14,15 @@
     "@apollo/client": "^4.0.4",
     "@headlessui/react": "^2.2.7",
     "@heroicons/react": "^2.2.0",
-    "@Dex/sdk-core": "^7.7.2",
-    "@Dex/v3-sdk": "^3.25.2",
+    "@reown/appkit": "^1.8.6",
+    "@reown/appkit-adapter-wagmi": "^1.8.6",
+    "@tanstack/react-query": "^5.89.0",
+    "@types/debug": "^4.1.12",
+    "@types/lodash": "^4.17.20",
+    "@types/ms": "^2.1.0",
+    "@types/trusted-types": "^2.0.7",
+    "@uniswap/sdk-core": "^7.7.2",
+    "@uniswap/v3-sdk": "^3.6.2",
     "ethers": "^6.15.0",
     "graphql": "^16.11.0",
     "prettier": "^3.6.2",
@@ -23,7 +30,9 @@
     "react-dom": "^19.1.1",
     "react-toastify": "^11.0.5",
     "rxjs": "^7.8.2",
-    "use-debounce": "^10.0.6"
+    "use-debounce": "^10.0.6",
+    "viem": "^2.37.7",
+    "wagmi": "^2.17.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
