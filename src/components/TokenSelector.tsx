@@ -12,6 +12,7 @@ interface TokenSelectorProps {
   signer?: any;
 }
 
+// TokenSelector component
 export function TokenSelector({ 
   selectedToken, 
   onSelect, 
