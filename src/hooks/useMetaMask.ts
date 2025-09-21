@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { ethers } from "ethers";
+import { useAccount, useWalletClient } from "wagmi";
 
 declare global {
   interface Window {
-    ethereum: any;
+    ethereum?: any;
   }
 }
 
@@ -14,7 +15,7 @@ export const useMetaMask = () => {
   const [chainId, setChainId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
-
+  const { data: walletClient } = useWalletClient();
   // Check if MetaMask is installed
   const isMetaMaskInstalled = () => {
     return typeof window.ethereum !== "undefined" && window.ethereum.isMetaMask;
@@ -60,6 +61,20 @@ export const useMetaMask = () => {
     }
   };
 
+
+  async function getSigner() {
+    if (!walletClient) return null;
+
+    // Convert viem’s walletClient → ethers signer
+    const provider = new ethers.BrowserProvider(walletClient.transport);
+    const signer = await provider.getSigner();
+    const network = await provider.getNetwork();
+
+    console.log("Signer:", signer);
+    console.log("Network:", network);
+    return signer;
+  }
+
   // Handle account change
   const handleAccountsChanged = (accounts: string[]) => {
     if (accounts.length === 0) {
@@ -98,5 +113,6 @@ export const useMetaMask = () => {
     isConnecting,
     connect,
     isMetaMaskInstalled,
+    getSigner,
   };
 };
