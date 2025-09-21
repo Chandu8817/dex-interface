@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useMetaMask } from "./hooks/useMetaMask";
 import { SwapTab } from "./components/Swap/SwapTab";
 import { LiquidityTab } from "./components/Liquidity/LiquidityTab";
 import { PoolsTab } from "./components/Pools/PoolsTab";
