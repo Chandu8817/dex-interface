@@ -9,29 +9,25 @@ export function useFactory(signer: JsonRpcSigner | null) {
   const [error, setError] = useState<Error | null>(null);
   const [factoryContract, setFactoryContract] = useState<ethers.Contract | null>(null);
   useEffect(() => {
-    console.log("useEffect in useFactory - signer changed:", !!signer);
+    console.log('useEffect in useFactory - signer changed:', !!signer);
     if (signer) {
       try {
         if (!FACTORY_ADDRESS) {
-          throw new Error("Factory contract address not configured");
+          throw new Error('Factory contract address not configured');
         }
 
-        console.log("Creating new Factory contract instance with address:", FACTORY_ADDRESS);
-        const contractInstance = new ethers.Contract(
-          FACTORY_ADDRESS,
-          FACTORY_ABI,
-          signer
-        );
+        console.log('Creating new Factory contract instance with address:', FACTORY_ADDRESS);
+        const contractInstance = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, signer);
 
-        console.log("Factory contract instance created:", contractInstance);
+        console.log('Factory contract instance created:', contractInstance);
         setFactoryContract(contractInstance);
         setError(null);
       } catch (err) {
-        console.error("Error creating Factory contract instance:", err);
+        console.error('Error creating Factory contract instance:', err);
         setError(err as Error);
       }
     } else {
-      console.log("No signer available, setting contract to null");
+      console.log('No signer available, setting contract to null');
       setFactoryContract(null);
     }
   }, [signer]);
@@ -41,12 +37,11 @@ export function useFactory(signer: JsonRpcSigner | null) {
       setIsLoading(true);
       setError(null);
 
-      const [token0, token1] = tokenA.id.toLowerCase() < tokenB.id.toLowerCase()
-        ? [tokenA, tokenB]
-        : [tokenB, tokenA];
+      const [token0, token1] =
+        tokenA.id.toLowerCase() < tokenB.id.toLowerCase() ? [tokenA, tokenB] : [tokenB, tokenA];
 
       if (!factoryContract) {
-        throw new Error("Factory contract not initialized");
+        throw new Error('Factory contract not initialized');
       }
       const poolAddress = await factoryContract.getPool(token0.id, token1.id, feeTier);
 
@@ -69,13 +64,12 @@ export function useFactory(signer: JsonRpcSigner | null) {
       setError(null);
 
       if (!factoryContract) {
-        throw new Error("Factory contract not initialized");
+        throw new Error('Factory contract not initialized');
       }
 
-      const [token0, token1] = tokenA.id.toLowerCase() < tokenB.id.toLowerCase()
-        ? [tokenA, tokenB]
-        : [tokenB, tokenA];
-    
+      const [token0, token1] =
+        tokenA.id.toLowerCase() < tokenB.id.toLowerCase() ? [tokenA, tokenB] : [tokenB, tokenA];
+
       const tx = await factoryContract.createPool(token0.id, token1.id, feeTier);
       await tx.wait();
       const newPoolAddress = await getPoolAddress(token0, token1, feeTier);

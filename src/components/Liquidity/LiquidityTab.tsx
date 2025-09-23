@@ -1,32 +1,31 @@
-import { useState, useEffect, useCallback } from "react";
-import TickRange from "./TickerRangeSelect";
-import { ethers, JsonRpcSigner } from "ethers";
-import {  usePositionManager } from "../../hooks/usePositionManager";
-import { POSITION_MANAGER_ADDRESS } from "../../constants";
-import { useERC20 } from "../../hooks/useERC20";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import { useQuote } from "../../hooks/useQuote";
-import { SlippageSettings } from "../SlippageSettings";
-import TokenSelector from "../TokenSelector";
-import type { Token } from "../../types";
-import { useTokens } from "../../hooks/useTokens";
-import { useFactory } from "../../hooks/useFactory";
-
+import { useState, useEffect, useCallback } from 'react';
+import TickRange from './TickerRangeSelect';
+import { ethers, JsonRpcSigner } from 'ethers';
+import { usePositionManager } from '../../hooks/usePositionManager';
+import { POSITION_MANAGER_ADDRESS } from '../../constants';
+import { useERC20 } from '../../hooks/useERC20';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { useQuote } from '../../hooks/useQuote';
+import { SlippageSettings } from '../SlippageSettings';
+import TokenSelector from '../TokenSelector';
+import type { Token } from '../../types';
+import { useTokens } from '../../hooks/useTokens';
+import { useFactory } from '../../hooks/useFactory';
 
 interface LiquidityTabProps {
   signer: JsonRpcSigner | null;
 }
-type TabType = "add" | "remove";
+type TabType = 'add' | 'remove';
 
 export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
   // Step state: 1 = select pair/fee, 2 = set range & amounts
   const [step, setStep] = useState<1 | 2>(1);
-  const [poolAddress, setPoolAddress] = useState<string>(""); // fetched pool address
+  const [poolAddress, setPoolAddress] = useState<string>(''); // fetched pool address
   const { getPoolAddress } = useFactory(signer);
 
   const { tokens, getTokenBySymbol } = useTokens();
-  const [activeTab, setActiveTab] = useState<TabType>("add");
+  const [activeTab, setActiveTab] = useState<TabType>('add');
   const [tokenA, setTokenA] = useState<Token | null>(null);
   const [tokenB, setTokenB] = useState<Token | null>(null);
   const [isMulitiCallOn, setIsMulitiCallOn] = useState(false);
@@ -34,8 +33,8 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
   // Initialize default tokens when tokens are loaded
   useEffect(() => {
     if (tokens.length > 0) {
-      const defaultTokenA = getTokenBySymbol("ETH") ;
-      const defaultTokenB = getTokenBySymbol("USDC");
+      const defaultTokenA = getTokenBySymbol('ETH');
+      const defaultTokenB = getTokenBySymbol('USDC');
       setTokenA(defaultTokenA as Token);
       setTokenB(defaultTokenB as Token);
     }
@@ -45,33 +44,32 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
 
   // Reset pool and amounts if pair/fee changes
   useEffect(() => {
-    setPoolAddress("");
+    setPoolAddress('');
     setStep(1);
-    setAmountA("");
-    setAmountB("");
+    setAmountA('');
+    setAmountB('');
   }, [tokenA, tokenB, fee]);
 
-  const [tokenId, setTokenId] = useState("");
-  const [liquidity, setLiquidity] = useState("");
-  const [amountA, setAmountA] = useState("");
-  const [amountB, setAmountB] = useState("");
-  const [tickLower, setTickLower] = useState("");
-  const [tickUpper, setTickUpper] = useState("");
+  const [tokenId, setTokenId] = useState('');
+  const [liquidity, setLiquidity] = useState('');
+  const [amountA, setAmountA] = useState('');
+  const [amountB, setAmountB] = useState('');
+  const [tickLower, setTickLower] = useState('');
+  const [tickUpper, setTickUpper] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [balanceA, setBalanceA] = useState("0");
-  const [balanceB, setBalanceB] = useState("0");
+  const [balanceA, setBalanceA] = useState('0');
+  const [balanceB, setBalanceB] = useState('0');
   const [decimalsA, setDecimalsA] = useState(6);
   const [decimalsB, setDecimalsB] = useState(18);
-  const [allowanceA, setAllowanceA] = useState("0");
-  const [allowanceB, setAllowanceB] = useState("0");
-  const [symbolA, setSymbolA] = useState("");
-  const [symbolB, setSymbolB] = useState("");
+  const [allowanceA, setAllowanceA] = useState('0');
+  const [allowanceB, setAllowanceB] = useState('0');
+  const [symbolA, setSymbolA] = useState('');
+  const [symbolB, setSymbolB] = useState('');
   const [slippage, setSlippage] = useState(0.5); // 0.5% default slippage
   const [deadline, setDeadline] = useState(15); // 15 minutes default deadline
 
- 
   const {
     getSymbol: getSymbolA,
     getBalance: getBalanceA,
@@ -100,28 +98,24 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
   } = usePositionManager(signer);
   const { getDecimal: getDecimalTokenIn } = useERC20(signer);
   const { getDecimal: getDecimalTokenOut } = useERC20(signer);
-  const { quoteExactInputSingle ,isInitialized: isQuoteInitialized } = useQuote(signer);
+  const { quoteExactInputSingle, isInitialized: isQuoteInitialized } = useQuote(signer);
 
   // Format token amount with decimals
   const formatTokenAmount = (amount: string, decimals = 18) => {
     try {
-      return ethers.parseUnits(amount || "0", decimals).toString();
+      return ethers.parseUnits(amount || '0', decimals).toString();
     } catch (e) {
-      return "0";
+      return '0';
     }
   };
 
   // Check if user has sufficient balance
   const hasSufficientBalance = useCallback(() => {
-    
     if (!amountA || !amountB) return false;
     try {
-      const amountAWei = formatTokenAmount(amountA, decimalsA); 
-      const amountBWei = formatTokenAmount(amountB, decimalsB); 
-      return (
-        BigInt(balanceA) >= BigInt(amountAWei) &&
-        BigInt(balanceB) >= BigInt(amountBWei)
-      );
+      const amountAWei = formatTokenAmount(amountA, decimalsA);
+      const amountBWei = formatTokenAmount(amountB, decimalsB);
+      return BigInt(balanceA) >= BigInt(amountAWei) && BigInt(balanceB) >= BigInt(amountBWei);
     } catch (e) {
       return false;
     }
@@ -129,8 +123,7 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
 
   // Check if token is approved
   const isTokenAApproved = useCallback(() => {
-    
-    if(isMulitiCallOn){
+    if (isMulitiCallOn) {
       return true;
     }
     if (!amountA) return false;
@@ -143,7 +136,7 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
   }, [amountA, allowanceA]);
 
   const isTokenBApproved = useCallback(() => {
-    if(isMulitiCallOn){
+    if (isMulitiCallOn) {
       return true;
     }
     if (!amountB) return false;
@@ -157,30 +150,21 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
 
   // Function to update token A and B data
   const updateTokenData = useCallback(
-    async (newTokenA: string, newTokenB: string,symbol:string) => {
-      if (
-        !signer ||
-        !isInitialized ||
-        !isERC20InitializedA ||
-        !isERC20InitializedB
-      )
-        return;
+    async (newTokenA: string, newTokenB: string, symbol: string) => {
+      if (!signer || !isInitialized || !isERC20InitializedA || !isERC20InitializedB) return;
 
       try {
         const signerAddress = await signer.getAddress();
 
-        
-
         // Fetch new balances and allowances
-        const [balanceA, balanceB, allowanceA, allowanceB, symbolA, symbolB] =
-          await Promise.all([
-            getBalanceA(signerAddress, newTokenA,symbol),
-            getBalanceB(signerAddress, newTokenB,symbol),
-            getAllowanceA(signerAddress, POSITION_MANAGER_ADDRESS, newTokenA,symbol),
-            getAllowanceB(signerAddress, POSITION_MANAGER_ADDRESS, newTokenB,symbol),
-            getSymbolA(newTokenA),
-            getSymbolB(newTokenB),
-          ]);
+        const [balanceA, balanceB, allowanceA, allowanceB, symbolA, symbolB] = await Promise.all([
+          getBalanceA(signerAddress, newTokenA, symbol),
+          getBalanceB(signerAddress, newTokenB, symbol),
+          getAllowanceA(signerAddress, POSITION_MANAGER_ADDRESS, newTokenA, symbol),
+          getAllowanceB(signerAddress, POSITION_MANAGER_ADDRESS, newTokenB, symbol),
+          getSymbolA(newTokenA),
+          getSymbolB(newTokenB),
+        ]);
 
         // Update state with new values
         setBalanceA(balanceA.toString());
@@ -192,8 +176,8 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
         setSymbolA(symbolA);
         setSymbolB(symbolB);
       } catch (error) {
-        console.error("Error updating token data:", error);
-        toast.error("Failed to update token data");
+        console.error('Error updating token data:', error);
+        toast.error('Failed to update token data');
       }
     },
     [
@@ -209,46 +193,41 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
   );
 
   // Function to fetch pool address
-  const fetchPool = useCallback(async (tokenA: Token, tokenB: Token, fee: number) => {
-    if (!signer || !isInitialized) return null;
-    try {
-     
-      
-      const poolAddress = await getPoolAddress(tokenA, tokenB, fee);
-      return poolAddress;
-    } catch (error) {
-      console.error("Error fetching pool address:", error);
-      toast.error("Failed to fetch pool address");
-      return null;
-    }
-  }, [signer, isInitialized, getPoolAddress]);
+  const fetchPool = useCallback(
+    async (tokenA: Token, tokenB: Token, fee: number) => {
+      if (!signer || !isInitialized) return null;
+      try {
+        const poolAddress = await getPoolAddress(tokenA, tokenB, fee);
+        return poolAddress;
+      } catch (error) {
+        console.error('Error fetching pool address:', error);
+        toast.error('Failed to fetch pool address');
+        return null;
+      }
+    },
+    [signer, isInitialized, getPoolAddress],
+  );
 
   // Fetch balances and allowances
   const fetchBalancesAndAllowances = useCallback(async () => {
-    if (
-      !signer ||
-      !isInitialized ||
-      !isERC20InitializedA ||
-      !isERC20InitializedB
-    ){
-      return;}
+    if (!signer || !isInitialized || !isERC20InitializedA || !isERC20InitializedB) {
+      return;
+    }
 
     try {
       const signerAddress = await signer.getAddress();
 
       // Fetch balances and allowances for both tokens
       if (!tokenA || !tokenB) return;
-     
-      const [balanceA, balanceB, allowanceA, allowanceB, symbolA, symbolB] =
-        await Promise.all([
 
-          getBalanceA(signerAddress, tokenA.id,tokenA.symbol),
-          getBalanceB(signerAddress, tokenB.id,tokenB.symbol),
-          getAllowanceA(signerAddress, POSITION_MANAGER_ADDRESS, tokenA.id,tokenA.symbol),
-          getAllowanceB(signerAddress, POSITION_MANAGER_ADDRESS, tokenB.id,tokenB.symbol),
-          getSymbolA(tokenA.id),
-          getSymbolB(tokenB.id),
-        ]);
+      const [balanceA, balanceB, allowanceA, allowanceB, symbolA, symbolB] = await Promise.all([
+        getBalanceA(signerAddress, tokenA.id, tokenA.symbol),
+        getBalanceB(signerAddress, tokenB.id, tokenB.symbol),
+        getAllowanceA(signerAddress, POSITION_MANAGER_ADDRESS, tokenA.id, tokenA.symbol),
+        getAllowanceB(signerAddress, POSITION_MANAGER_ADDRESS, tokenB.id, tokenB.symbol),
+        getSymbolA(tokenA.id),
+        getSymbolB(tokenB.id),
+      ]);
 
       // Update state with fetched values
       setBalanceA(balanceA.toString());
@@ -260,8 +239,8 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
       setSymbolA(symbolA);
       setSymbolB(symbolB);
     } catch (error) {
-      console.error("Error fetching balances and allowances:", error);
-      toast.error("Failed to fetch token data");
+      console.error('Error fetching balances and allowances:', error);
+      toast.error('Failed to fetch token data');
     }
   }, [
     signer,
@@ -282,20 +261,15 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
   }, [fetchBalancesAndAllowances]);
 
   const handleApproveTokenA = async () => {
-    
-    if (!amountA || !tokenA) return; 
+    if (!amountA || !tokenA) return;
     try {
       setIsProcessing(true);
-      await approveA(
-        POSITION_MANAGER_ADDRESS,
-        ethers.parseUnits(amountA, decimalsA),
-        tokenA.id,
-      );
-      toast.success("Token A approved successfully");
+      await approveA(POSITION_MANAGER_ADDRESS, ethers.parseUnits(amountA, decimalsA), tokenA.id);
+      toast.success('Token A approved successfully');
       await fetchBalancesAndAllowances();
     } catch (error) {
-      console.error("Approval failed:", error);
-      toast.error("Failed to approve Token A");
+      console.error('Approval failed:', error);
+      toast.error('Failed to approve Token A');
     } finally {
       setIsProcessing(false);
     }
@@ -305,36 +279,25 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
     if (!amountB || !tokenB) return;
     try {
       setIsProcessing(true);
-      await approveB(
-        POSITION_MANAGER_ADDRESS,
-        ethers.parseUnits(amountB, decimalsB),
-        tokenB.id,
-      );
-      toast.success("Token B approved successfully");
+      await approveB(POSITION_MANAGER_ADDRESS, ethers.parseUnits(amountB, decimalsB), tokenB.id);
+      toast.success('Token B approved successfully');
       await fetchBalancesAndAllowances();
     } catch (error) {
-      console.error("Approval failed:", error);
-      toast.error("Failed to approve Token B");
+      console.error('Approval failed:', error);
+      toast.error('Failed to approve Token B');
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handleAddLiquidity = async () => {
-    if (
-      !tokenA ||
-      !tokenB ||
-      !amountA ||
-      !amountB ||
-      !tickLower ||
-      !tickUpper
-    ) {
-      setError("Please fill in all required fields");
+    if (!tokenA || !tokenB || !amountA || !amountB || !tickLower || !tickUpper) {
+      setError('Please fill in all required fields');
       return;
     }
 
     if (!isInitialized || !isERC20InitializedA || !isERC20InitializedB) {
-      setError("Contract not initialized. Please connect your wallet first.");
+      setError('Contract not initialized. Please connect your wallet first.');
       return;
     }
 
@@ -345,48 +308,50 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
 
       // Check if we need to approve tokens first
       if (!isTokenAApproved()) {
-        toast.info("Please approve Token A first");
+        toast.info('Please approve Token A first');
         return;
       }
 
       if (!isTokenBApproved()) {
-        toast.info("Please approve Token B first");
+        toast.info('Please approve Token B first');
         return;
       }
 
       // Double-check balances before proceeding
       if (!hasSufficientBalance()) {
-        toast.error("Insufficient balance for one or both tokens");
+        toast.error('Insufficient balance for one or both tokens');
         return;
       }
 
-      toast.info("Adding liquidity...");
-      
+      toast.info('Adding liquidity...');
+
       // First, create a new position
       const signerAddress = await signer?.getAddress();
-      if (!signerAddress) throw new Error("No signer address available");
-      
+      if (!signerAddress) throw new Error('No signer address available');
+
       // Sort tokens by address (required by Uniswap V3)
       const token0 = tokenA.id.toLowerCase() < tokenB.id.toLowerCase() ? tokenA : tokenB;
       const token1 = tokenA.id.toLowerCase() < tokenB.id.toLowerCase() ? tokenB : tokenA;
-      
+
       // Parse amounts based on token order
-      const amount0Desired = token0 === tokenA 
-        ? ethers.parseUnits(amountA, Number(tokenA.decimals))
-        : ethers.parseUnits(amountB, Number(tokenB.decimals));
-      const amount1Desired = token0 === tokenA 
-        ? ethers.parseUnits(amountB, Number(tokenB.decimals))
-        : ethers.parseUnits(amountA, Number(tokenA.decimals));
+      const amount0Desired =
+        token0 === tokenA
+          ? ethers.parseUnits(amountA, Number(tokenA.decimals))
+          : ethers.parseUnits(amountB, Number(tokenB.decimals));
+      const amount1Desired =
+        token0 === tokenA
+          ? ethers.parseUnits(amountB, Number(tokenB.decimals))
+          : ethers.parseUnits(amountA, Number(tokenA.decimals));
 
       // Calculate minimum amounts with slippage
       const slippageBasisPoints = BigInt(Math.floor(slippage * 100));
       const amount0Min = (amount0Desired * (10000n - slippageBasisPoints)) / 10000n;
       const amount1Min = (amount1Desired * (10000n - slippageBasisPoints)) / 10000n;
 
-//       const base = Math.floor(-360447 / 200) * 200;
-// const rangeMultiplier = 1; // how wide: 1 -> +/- one tickSpacing, bigger -> wider range
-// const tickLower = base - 200 * rangeMultiplier;
-// const tickUpper = base + 200 * rangeMultiplier;
+      //       const base = Math.floor(-360447 / 200) * 200;
+      // const rangeMultiplier = 1; // how wide: 1 -> +/- one tickSpacing, bigger -> wider range
+      // const tickLower = base - 200 * rangeMultiplier;
+      // const tickUpper = base + 200 * rangeMultiplier;
 
       const params = {
         token0: token0.id,
@@ -401,18 +366,14 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
         recipient: signerAddress,
         deadline: Math.floor(Date.now() / 1000) + deadline * 60, // deadline minutes from now
       };
-      
-     
+
       // Call the mint function with all required parameters
       let tx;
-   if(isMulitiCallOn) {
+      if (isMulitiCallOn) {
+        if (!contract) throw new Error('Contract not initialized');
 
-
-       if (!contract) throw new Error("Contract not initialized");
-       
-        const mintData = contract.interface.encodeFunctionData(
-          "mint",
-          [{
+        const mintData = contract.interface.encodeFunctionData('mint', [
+          {
             token0: params.token0,
             token1: params.token1,
             fee: params.fee,
@@ -424,46 +385,46 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
             amount1Min: params.amount1Min,
             recipient: params.recipient,
             deadline: params.deadline,
-          }]
+          },
+        ]);
+        const value =
+          token0.symbol === 'ETH' ? amount0Desired : token1.symbol === 'ETH' ? amount1Desired : 0n;
+        tx = await multicall([mintData], value);
+      } else {
+        const value =
+          token0.symbol === 'ETH' ? amount0Desired : token1.symbol === 'ETH' ? amount1Desired : 0n;
+        tx = await mint(
+          {
+            token0: params.token0,
+            token1: params.token1,
+            fee: params.fee,
+            tickLower: params.tickLower,
+            tickUpper: params.tickUpper,
+            amount0Desired: params.amount0Desired,
+            amount1Desired: params.amount1Desired,
+            amount0Min: 0n,
+            amount1Min: 0n,
+            recipient: params.recipient,
+            deadline: params.deadline,
+          },
+          value,
         );
-        const value = token0.symbol === "ETH" ? amount0Desired 
-             : token1.symbol === "ETH" ? amount1Desired 
-             : 0n;
-        tx = await multicall([mintData],value);
+      }
 
-   }else
-    {
-       const value = token0.symbol === "ETH" ? amount0Desired 
-             : token1.symbol === "ETH" ? amount1Desired 
-             : 0n;
-    tx = await mint({
-        token0: params.token0,
-        token1: params.token1,
-        fee: params.fee,
-        tickLower:  params.tickLower,
-        tickUpper:  params.tickUpper,
-        amount0Desired: params.amount0Desired,
-        amount1Desired: params.amount1Desired,
-        amount0Min: 0n,
-        amount1Min: 0n,
-        recipient: params.recipient,
-        deadline: params.deadline,
-      },value);}
-      
       const receipt = await tx.wait();
 
-      toast.success("Liquidity added successfully!");
+      toast.success('Liquidity added successfully!');
       setTxHash(receipt.transactionHash);
 
       // Reset form
-      setAmountA("");
-      setAmountB("");
+      setAmountA('');
+      setAmountB('');
 
       // Refresh balances
       await fetchBalancesAndAllowances();
     } catch (err: any) {
-      console.error("Add liquidity failed:", err);
-      setError(err.message || "Failed to add liquidity");
+      console.error('Add liquidity failed:', err);
+      setError(err.message || 'Failed to add liquidity');
     } finally {
       setIsProcessing(false);
     }
@@ -476,11 +437,11 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
           const position = await positions(BigInt(tokenId));
           if (position) {
             setLiquidity(position.liquidity.toString());
-            console.log("Position:", position);
+            console.log('Position:', position);
           }
         } catch (err) {
-          console.error("Failed to fetch position:", err);
-          setError("Failed to fetch position. Please check the position ID.");
+          console.error('Failed to fetch position:', err);
+          setError('Failed to fetch position. Please check the position ID.');
         }
       }
     };
@@ -489,13 +450,13 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
 
   const handleRemoveLiquidity = async () => {
     if (!tokenId) {
-      setError("Please enter a valid position ID");
+      setError('Please enter a valid position ID');
       return;
     }
-    
+
     const signerAddress = await signer?.getAddress();
     if (!signerAddress) {
-      setError("No signer address available");
+      setError('No signer address available');
       return;
     }
 
@@ -503,49 +464,46 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
       setIsProcessing(true);
       setError(null);
       setTxHash(null);
-      
+
       // First check if the position manager is approved
       const signerAddress = await signer?.getAddress();
-      if (!signerAddress) throw new Error("No signer address available");
-      
-      const isApproved = await isApprovedForAll(
-        signerAddress,
-        POSITION_MANAGER_ADDRESS
-      );
+      if (!signerAddress) throw new Error('No signer address available');
+
+      const isApproved = await isApprovedForAll(signerAddress, POSITION_MANAGER_ADDRESS);
 
       if (!isApproved) {
-        toast.info("Approving position manager...");
+        toast.info('Approving position manager...');
         const approveTx = await approve(POSITION_MANAGER_ADDRESS, BigInt(tokenId));
-        if(approveTx){
-          toast.success("Position manager approved successfully");
+        if (approveTx) {
+          toast.success('Position manager approved successfully');
         }
       }
 
       // Get position details
       const position = await positions(BigInt(tokenId));
       if (!position) {
-        throw new Error("Position not found");
+        throw new Error('Position not found');
       }
-       if(position.liquidity > 0n){
-          // Decrease liquidity to 0
-      const params = {
-        tokenId: BigInt(tokenId),
-        liquidity: position.liquidity,
-        amount0Min: 0n,
-        amount1Min: 0n,
-        deadline: Math.floor(Date.now() / 1000) + 60 * 20, // 20 minutes from now
-      };
- 
-      toast.info("Removing liquidity...");
-      const tx = await decreaseLiquidity(params);
-      if(tx){
-        toast.success("Liquidity removed successfully");
+      if (position.liquidity > 0n) {
+        // Decrease liquidity to 0
+        const params = {
+          tokenId: BigInt(tokenId),
+          liquidity: position.liquidity,
+          amount0Min: 0n,
+          amount1Min: 0n,
+          deadline: Math.floor(Date.now() / 1000) + 60 * 20, // 20 minutes from now
+        };
+
+        toast.info('Removing liquidity...');
+        const tx = await decreaseLiquidity(params);
+        if (tx) {
+          toast.success('Liquidity removed successfully');
+        }
       }
-       }
-    
-       const MaxUint128 = (1n << 128n) - 1n;
+
+      const MaxUint128 = (1n << 128n) - 1n;
       // Collect fees
-    const collectTx =  await collect({
+      const collectTx = await collect({
         tokenId: BigInt(tokenId),
         recipient: signerAddress,
         amount0Max: MaxUint128,
@@ -553,20 +511,20 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
       });
 
       // Burn the position
-    if(collectTx){
-      const burnTx = await burn(BigInt(tokenId));
-      setTxHash(burnTx.hash);
-    }
+      if (collectTx) {
+        const burnTx = await burn(BigInt(tokenId));
+        setTxHash(burnTx.hash);
+      }
 
-      toast.success("Liquidity removed successfully!");
-      setTokenId("");
-      setLiquidity("");
-      
+      toast.success('Liquidity removed successfully!');
+      setTokenId('');
+      setLiquidity('');
+
       // Refresh balances
       await fetchBalancesAndAllowances();
     } catch (err: any) {
-      console.error("Remove liquidity failed:", err);
-      setError(err.message || "Failed to remove liquidity");
+      console.error('Remove liquidity failed:', err);
+      setError(err.message || 'Failed to remove liquidity');
     } finally {
       setIsProcessing(false);
     }
@@ -591,10 +549,10 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
       setAmountB(oldAmountA);
 
       // Fetch new balances and allowances for the swapped tokens
-      await updateTokenData(oldTokenB.id, oldTokenA.id,oldTokenA.symbol);
+      await updateTokenData(oldTokenB.id, oldTokenA.id, oldTokenA.symbol);
     } catch (error) {
-      console.error("Error swapping tokens:", error);
-      toast.error("Failed to swap tokens");
+      console.error('Error swapping tokens:', error);
+      toast.error('Failed to swap tokens');
     } finally {
       setIsProcessing(false);
     }
@@ -602,19 +560,19 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
 
   const handleTokenAChange = (newToken: Token) => {
     setTokenA(newToken);
-    setAmountA("");
-    setAmountB("");
+    setAmountA('');
+    setAmountB('');
   };
 
   const handleTokenBChange = (newToken: Token) => {
     setTokenB(newToken);
-    setAmountA("");
-    setAmountB("");
+    setAmountA('');
+    setAmountB('');
   };
 
   const getAmountOut = useCallback(async () => {
     if (!tokenA || !tokenB || !amountA || !signer) {
-      setAmountB("");
+      setAmountB('');
       return;
     }
 
@@ -624,11 +582,11 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
 
       // Validate amount is a positive number
       if (isNaN(Number(amountA)) || Number(amountA) <= 0) {
-        setAmountB("");
+        setAmountB('');
         return;
       }
       if (!isQuoteInitialized) {
-        toast.error("Quote contract not initialized");
+        toast.error('Quote contract not initialized');
         return;
       }
 
@@ -642,15 +600,16 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
         decimalsOut,
       );
       if (!quote) return;
-      
 
       const amountOutWei = ethers.parseUnits(quote.amountOut, decimalsOut);
       const slippageBasisPoints = BigInt(Math.floor(slippage * 100));
-      const minAmountOut = ethers.formatUnits(BigInt(amountOutWei) * (10000n - slippageBasisPoints) / 10000n, decimalsOut);
+      const minAmountOut = ethers.formatUnits(
+        (BigInt(amountOutWei) * (10000n - slippageBasisPoints)) / 10000n,
+        decimalsOut,
+      );
       setAmountB(minAmountOut.toString());
     } catch (err) {
       // console.error("Failed to get quote:", err);
-
     }
   }, [
     tokenA,
@@ -663,17 +622,16 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
     quoteExactInputSingle,
   ]);
 
-useEffect(() => {
-  getAmountOut();
-}, [amountA, tokenA, tokenB, fee, slippage, signer]);
-
+  useEffect(() => {
+    getAmountOut();
+  }, [amountA, tokenA, tokenB, fee, slippage, signer]);
 
   // Format balance for display
   const formatDisplayBalance = (balance: string, decimals: number) => {
     try {
       return Number(ethers.formatUnits(balance, decimals)).toFixed(4);
     } catch (e) {
-      return "0";
+      return '0';
     }
   };
 
@@ -682,7 +640,7 @@ useEffect(() => {
     if (!amountA || !amountB) {
       return {
         disabled: true,
-        text: "Enter amounts",
+        text: 'Enter amounts',
         onClick: () => {},
       };
     }
@@ -690,7 +648,7 @@ useEffect(() => {
     if (!hasSufficientBalance()) {
       return {
         disabled: true,
-        text: "Insufficient balance",
+        text: 'Insufficient balance',
         onClick: () => {},
       };
     }
@@ -713,7 +671,7 @@ useEffect(() => {
 
     return {
       disabled: isProcessing || !hasSufficientBalance(),
-      text: "Add Liquidity",
+      text: 'Add Liquidity',
       onClick: handleAddLiquidity,
     };
   };
@@ -726,10 +684,10 @@ useEffect(() => {
       <div className="p-4 space-y-4">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">
-            {activeTab === "add" ? "Add Liquidity" : "Remove Liquidity"}
+            {activeTab === 'add' ? 'Add Liquidity' : 'Remove Liquidity'}
           </h1>
-          <SlippageSettings 
-            slippage={slippage} 
+          <SlippageSettings
+            slippage={slippage}
             onSlippageChange={setSlippage}
             deadline={deadline}
             onDeadlineChange={setDeadline}
@@ -737,8 +695,6 @@ useEffect(() => {
             setIsMulitiCallOn={setIsMulitiCallOn}
           />
         </div>
-
-       
 
         {/* Step 1: Select pair and fee */}
         {step === 1 && (
@@ -784,7 +740,7 @@ useEffect(() => {
               disabled={!tokenA || !tokenB || !fee}
               onClick={async () => {
                 if (!tokenA || !tokenB) return;
-                
+
                 setIsProcessing(true);
                 try {
                   const poolAddress = await fetchPool(tokenA, tokenB, fee);
@@ -792,11 +748,11 @@ useEffect(() => {
                     setPoolAddress(poolAddress);
                     setStep(2);
                   } else {
-                    toast.error("Pool not found for selected pair");
+                    toast.error('Pool not found for selected pair');
                   }
                 } catch (error) {
-                  console.error("Error fetching pool:", error);
-                  toast.error("Failed to fetch pool");
+                  console.error('Error fetching pool:', error);
+                  toast.error('Failed to fetch pool');
                 } finally {
                   setIsProcessing(false);
                 }
@@ -806,33 +762,43 @@ useEffect(() => {
             </button>
           </div>
         )}
-      {/* Stepper */}
-    { activeTab === "add" && <div className="flex items-center mb-4">
-         
-         <button onClick={() => setStep(1)} className={`flex items-center ${step === 1 ? 'font-bold text-blue-600' : 'text-gray-400'}`}>1. Select pair & fee</button>
-          <div className="mx-2">→</div>
-          <button onClick={() => setStep(1)} className={`flex items-center ${step === 2 ? 'font-bold text-blue-600' : 'text-gray-400'}`}>2. Set range & deposit</button>
-        </div>}
+        {/* Stepper */}
+        {activeTab === 'add' && (
+          <div className="flex items-center mb-4">
+            <button
+              onClick={() => setStep(1)}
+              className={`flex items-center ${step === 1 ? 'font-bold text-blue-600' : 'text-gray-400'}`}
+            >
+              1. Select pair & fee
+            </button>
+            <div className="mx-2">→</div>
+            <button
+              onClick={() => setStep(1)}
+              className={`flex items-center ${step === 2 ? 'font-bold text-blue-600' : 'text-gray-400'}`}
+            >
+              2. Set range & deposit
+            </button>
+          </div>
+        )}
         {/* Step 2: Add liquidity (range, amounts, etc.) */}
         {step === 2 && poolAddress && (
           <div>
-       
-              <div className="flex border-b mb-4">
+            <div className="flex border-b mb-4">
               <button
-                className={`px-4 py-2 ${activeTab === "add" ? "border-b-2 border-blue-500 font-medium" : "text-gray-500"}`}
-                onClick={() => setActiveTab("add")}
+                className={`px-4 py-2 ${activeTab === 'add' ? 'border-b-2 border-blue-500 font-medium' : 'text-gray-500'}`}
+                onClick={() => setActiveTab('add')}
               >
                 Add Liquidity
               </button>
               <button
-                className={`px-4 py-2 ${activeTab === "remove" ? "border-b-2 border-blue-500 font-medium" : "text-gray-500"}`}
-                onClick={() => setActiveTab("remove")}
+                className={`px-4 py-2 ${activeTab === 'remove' ? 'border-b-2 border-blue-500 font-medium' : 'text-gray-500'}`}
+                onClick={() => setActiveTab('remove')}
               >
                 Manage Liquidity Position
               </button>
             </div>
-    
-            {activeTab === "add" ? (
+
+            {activeTab === 'add' ? (
               <div className="space-y-4">
                 <h2 className="text-xl font-semibold mb-4">Add Liquidity</h2>
                 <div className="space-y-2">
@@ -842,7 +808,7 @@ useEffect(() => {
                       Balance: {formatDisplayBalance(balanceA, decimalsA)} {symbolA}
                     </span>
                   </div>
-                
+
                   <div className="flex justify-between items-center mb-1">
                     <label className="block text-sm font-medium">{symbolB}</label>
                     <span className="text-xs text-gray-500">
@@ -851,9 +817,7 @@ useEffect(() => {
                   </div>
                   <div className="flex justify-between items-center mb-1">
                     <label className="block text-sm font-medium">Fee Tier</label>
-                    <span className="text-xs text-gray-500">
-                      {fee/10000}%
-                    </span>
+                    <span className="text-xs text-gray-500">{fee / 10000}%</span>
                   </div>
                   <div className="flex justify-center -my-2">
                     <button
@@ -881,19 +845,18 @@ useEffect(() => {
                   </div>
                 </div>
                 <div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Price Range</label>
-                  <TickRange
-                    tickLower={tickLower}
-                    tickUpper={tickUpper}
-                    onTickLowerChange={setTickLower}
-                    onTickUpperChange={setTickUpper}
-                    
-                    signer={signer}
-                    poolAddress={poolAddress}
-                  />
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Price Range</label>
+                    <TickRange
+                      tickLower={tickLower}
+                      tickUpper={tickUpper}
+                      onTickLowerChange={setTickLower}
+                      onTickUpperChange={setTickUpper}
+                      signer={signer}
+                      poolAddress={poolAddress}
+                    />
                   </div>
+                </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Amount A</label>
                   <input
@@ -903,17 +866,11 @@ useEffect(() => {
                     placeholder="0.0"
                     className="w-full p-2 border rounded"
                   />
-                  {amountA &&
-                    BigInt(balanceA) <
-                      BigInt(formatTokenAmount(amountA, decimalsA)) && (
-                      <p className="mt-1 text-xs text-red-500">
-                        Insufficient balance
-                      </p>
-                    )}
+                  {amountA && BigInt(balanceA) < BigInt(formatTokenAmount(amountA, decimalsA)) && (
+                    <p className="mt-1 text-xs text-red-500">Insufficient balance</p>
+                  )}
                 </div>
 
-                
-    
                 <div>
                   <label className="block text-sm font-medium mb-1">Amount B</label>
                   <input
@@ -923,38 +880,29 @@ useEffect(() => {
                     placeholder="0.0"
                     className="w-full p-2 border rounded"
                   />
-                  {amountB &&
-                    BigInt(balanceB) <
-                      BigInt(formatTokenAmount(amountB, decimalsB)) && (
-                      <p className="mt-1 text-xs text-red-500">
-                        Insufficient balance
-                      </p>
-                    )}
+                  {amountB && BigInt(balanceB) < BigInt(formatTokenAmount(amountB, decimalsB)) && (
+                    <p className="mt-1 text-xs text-red-500">Insufficient balance</p>
+                  )}
                 </div>
-    
-         
-         
-    
+
                 <button
                   onClick={buttonState.onClick}
                   disabled={buttonState.disabled}
                   className={`w-full py-3 px-4 rounded-xl font-medium text-white ${
                     buttonState.disabled
-                        ? 'w-full py-3 px-4 rounded-xl font-medium text-white bg-red-500 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700'
+                      ? 'w-full py-3 px-4 rounded-xl font-medium text-white bg-red-500 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700'
                   }`}
                 >
-                  {isProcessing ? "Processing..." : buttonState.text}
+                  {isProcessing ? 'Processing...' : buttonState.text}
                 </button>
               </div>
             ) : (
               <div className="space-y-4">
                 <h2 className="text-xl font-semibold mb-4"> Manage Position</h2>
-    
+
                 <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Position ID
-                  </label>
+                  <label className="block text-sm font-medium mb-1">Position ID</label>
                   <input
                     type="text"
                     value={tokenId}
@@ -963,11 +911,9 @@ useEffect(() => {
                     className="w-full p-2 border rounded"
                   />
                 </div>
-    
+
                 <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Liquidity Amount
-                  </label>
+                  <label className="block text-sm font-medium mb-1">Liquidity Amount</label>
                   <input
                     type="text"
                     value={liquidity}
@@ -976,17 +922,17 @@ useEffect(() => {
                     className="w-full p-2 border rounded"
                   />
                 </div>
-    
+
                 <button
                   onClick={handleRemoveLiquidity}
                   disabled={isProcessing}
                   className={`w-full py-3 px-4 rounded-xl font-medium text-white ${
                     buttonState.disabled
-                        ? 'bg-gray-300 cursor-not-allowed'
-                        : 'bg-red-600 hover:bg-red-700'
+                      ? 'bg-gray-300 cursor-not-allowed'
+                      : 'bg-red-600 hover:bg-red-700'
                   }`}
                 >
-                  {isProcessing ? "Processing..." : "Remove Liquidity"}
+                  {isProcessing ? 'Processing...' : 'Remove Liquidity'}
                 </button>
               </div>
             )}
@@ -995,9 +941,7 @@ useEffect(() => {
 
         {/* Transaction Status */}
         {isProcessing && (
-          <div className="p-3 bg-blue-100 text-blue-800 rounded">
-            Processing transaction...
-          </div>
+          <div className="p-3 bg-blue-100 text-blue-800 rounded">Processing transaction...</div>
         )}
 
         {txHash && (
@@ -1014,11 +958,7 @@ useEffect(() => {
           </div>
         )}
 
-        {error && (
-          <div className="p-3 bg-red-100 text-red-800 rounded">{error}</div>
-        )}
-
-   
+        {error && <div className="p-3 bg-red-100 text-red-800 rounded">{error}</div>}
       </div>
     </div>
   );

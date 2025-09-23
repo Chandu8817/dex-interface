@@ -1,5 +1,5 @@
-import type { JsonRpcSigner } from "ethers";
-import { ethers } from "ethers";
+import type { JsonRpcSigner } from 'ethers';
+import { ethers } from 'ethers';
 
 export interface Token {
   id: string;
@@ -28,4 +28,4 @@ export interface PoolsTabProps {
   signer: ethers.Signer | null;
 }
 
-export type TabType = "add" | "remove";
+export type TabType = 'add' | 'remove';

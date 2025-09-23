@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
-import type { JsonRpcSigner } from "ethers";
-import { usePool } from "../../hooks/usePool";
+import React, { useEffect, useState } from 'react';
+import type { JsonRpcSigner } from 'ethers';
+import { usePool } from '../../hooks/usePool';
 
 interface TickRangeProps {
   tickLower: string;
@@ -13,11 +13,10 @@ interface TickRangeProps {
 
 // utils
 const tickToPrice = (tick: number) => Math.pow(1.0001, tick);
-const priceToTick = (price: number) =>
-  Math.round(Math.log(price) / Math.log(1.0001));
+const priceToTick = (price: number) => Math.round(Math.log(price) / Math.log(1.0001));
 
 // snap tick to spacing
-const snapTick = (tick: number, tickSpacing: number, isLower: boolean) => {
+export const snapTick = (tick: number, tickSpacing: number, isLower: boolean) => {
   return isLower
     ? Math.floor(tick / tickSpacing) * tickSpacing
     : Math.ceil(tick / tickSpacing) * tickSpacing;
@@ -40,7 +39,7 @@ const TickRange: React.FC<TickRangeProps> = ({
     const fetchSlot0 = async () => {
       try {
         const slot0 = await getSlot0(poolAddress);
-        
+
         if (slot0) {
           setCurrentTick(slot0.tick);
           const sqrtRatio = Number(slot0.sqrtPriceX96) / 2 ** 96;
@@ -50,7 +49,7 @@ const TickRange: React.FC<TickRangeProps> = ({
         const spacing = await getTickSpacing(poolAddress);
         if (spacing) setTickSpacing(spacing);
       } catch (err) {
-        console.error("Error fetching slot0:", err);
+        console.error('Error fetching slot0:', err);
       }
     };
     fetchSlot0();
@@ -58,12 +57,7 @@ const TickRange: React.FC<TickRangeProps> = ({
 
   // Set default tick range to ±2% of currentTick (snapped) if both are empty
   useEffect(() => {
-    if (
-      currentTick !== null &&
-      tickSpacing &&
-      (!tickLower || !tickUpper)
-    ) {
-      debugger
+    if (currentTick !== null && tickSpacing && (!tickLower || !tickUpper)) {
       const range = Math.max(1, Math.round(Math.abs(Number(currentTick)) * 0.02));
       const lower = snapTick(Number(currentTick) - range, tickSpacing, true);
       const upper = snapTick(Number(currentTick) + range, tickSpacing, false);
@@ -75,16 +69,14 @@ const TickRange: React.FC<TickRangeProps> = ({
   }, [currentTick, tickSpacing, tickLower, tickUpper]);
 
   // UI: derive prices from ticks
-  const minPrice = tickLower ? tickToPrice(Number(tickLower)) : "";
-  const maxPrice = tickUpper ? tickToPrice(Number(tickUpper)) : "";
+  const minPrice = tickLower ? tickToPrice(Number(tickLower)) : '';
+  const maxPrice = tickUpper ? tickToPrice(Number(tickUpper)) : '';
 
   return (
     <div className="w-full bg-white rounded-xl shadow p-4 border">
       <div className="text-sm mb-2 text-gray-500">
-        Market price:{" "}
-        {currentPrice
-          ? `${currentPrice.toFixed(4)} (Tick ${currentTick})`
-          : "Loading..."}
+        Market price:{' '}
+        {currentPrice ? `${currentPrice.toFixed(4)} (Tick ${currentTick})` : 'Loading...'}
       </div>
 
       <div className="flex gap-4">
@@ -103,9 +95,7 @@ const TickRange: React.FC<TickRangeProps> = ({
             }}
             className="w-28 text-center p-2 border rounded"
           />
-          <div className="text-xs mt-1 text-gray-400">
-            USDT = 1 ETH (snapped tick {tickLower})
-          </div>
+          <div className="text-xs mt-1 text-gray-400">USDT = 1 ETH (snapped tick {tickLower})</div>
         </div>
 
         {/* Max Price */}
@@ -123,9 +113,7 @@ const TickRange: React.FC<TickRangeProps> = ({
             }}
             className="w-28 text-center p-2 border rounded"
           />
-          <div className="text-xs mt-1 text-gray-400">
-            USDT = 1 ETH (snapped tick {tickUpper})
-          </div>
+          <div className="text-xs mt-1 text-gray-400">USDT = 1 ETH (snapped tick {tickUpper})</div>
         </div>
       </div>
     </div>

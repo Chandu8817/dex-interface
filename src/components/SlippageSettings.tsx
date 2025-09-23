@@ -17,7 +17,7 @@ export const SlippageSettings = ({
   deadline,
   onDeadlineChange,
   className = '',
-  isMulitiCallOn=false,
+  isMulitiCallOn = false,
   setIsMulitiCallOn = () => {},
 }: SlippageSettingsProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -25,23 +25,18 @@ export const SlippageSettings = ({
   const [customDeadline, setCustomDeadline] = useState(deadline);
   const [activePreset, setActivePreset] = useState<string | null>(null);
 
-
   const presets = [
     { label: '0.1%', value: 0.1 },
     { label: '0.5%', value: 0.5 },
     { label: '1%', value: 1 },
   ];
 
- 
-
   useEffect(() => {
     // Update custom slippage when it changes from parent
     setCustomSlippage(slippage.toString());
-    
+
     // Check if current slippage matches any preset
-    const matchingPreset = presets.find(preset => 
-      Math.abs(preset.value - slippage) < 0.01
-    );
+    const matchingPreset = presets.find((preset) => Math.abs(preset.value - slippage) < 0.01);
     setActivePreset(matchingPreset ? matchingPreset.label : null);
   }, [slippage]);
 
@@ -125,12 +120,7 @@ export const SlippageSettings = ({
               className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
               aria-label="Close"
             >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -174,19 +164,18 @@ export const SlippageSettings = ({
             </div>
           </div>
 
-          
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             {slippage < 0.5
               ? 'Your transaction may fail'
               : slippage > 5
-              ? 'Your transaction may be frontrun'
-              : 'Your transaction may be frontrun if price moves unfavorably by more than this percentage'}
+                ? 'Your transaction may be frontrun'
+                : 'Your transaction may be frontrun if price moves unfavorably by more than this percentage'}
           </p>
-          
+
           <div className="relative">
             <input
               type="text"
-              value={customDeadline || ""}
+              value={customDeadline || ''}
               onChange={handleCustomDeadlineChange}
               onBlur={handleBlur}
               className="w-full pl-3 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -197,15 +186,11 @@ export const SlippageSettings = ({
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
               <span className="text-gray-500 dark:text-gray-400 text-sm">min</span>
             </div>
-
           </div>
 
           <div>
-          <ToggleButton enabled={isMulitiCallOn} onChange={setIsMulitiCallOn} />
-
-            </div>
-          
-         
+            <ToggleButton enabled={isMulitiCallOn} onChange={setIsMulitiCallOn} />
+          </div>
         </div>
       )}
     </div>

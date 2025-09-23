@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
-import { ethers, JsonRpcSigner } from "ethers";
-import { SWAP_ROUTER_ADDRESS, useSwapRouter } from "../../hooks/useSwapRouter";
-import { useERC20 } from "../../hooks/useERC20";
-import { toast, ToastContainer } from "react-toastify";
-import { useQuote } from "../../hooks/useQuote";
-import { SlippageSettings } from "../SlippageSettings";
-import TokenSelector from "../TokenSelector";
-import { useTokens } from "../../hooks/useTokens";
+import { useCallback, useEffect, useState } from 'react';
+import { ethers, JsonRpcSigner } from 'ethers';
+import { SWAP_ROUTER_ADDRESS, useSwapRouter } from '../../hooks/useSwapRouter';
+import { useERC20 } from '../../hooks/useERC20';
+import { toast, ToastContainer } from 'react-toastify';
+import { useQuote } from '../../hooks/useQuote';
+import { SlippageSettings } from '../SlippageSettings';
+import TokenSelector from '../TokenSelector';
+import { useTokens } from '../../hooks/useTokens';
 type Token = {
   id: string;
   name: string;
@@ -22,19 +22,19 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
   const { tokens, getTokenBySymbol } = useTokens();
   const [tokenIn, setTokenIn] = useState<Token | null>(null);
   const [tokenOut, setTokenOut] = useState<Token | null>(null);
-  const feeTier = import.meta.env.VITE_FEE_TIER || "3000";
+  const feeTier = import.meta.env.VITE_FEE_TIER || '3000';
 
   useEffect(() => {
     if (tokens.length > 0) {
-      const defaultTokenIn = getTokenBySymbol("ETH");
-      const defaultTokenOut = getTokenBySymbol("USDC");
+      const defaultTokenIn = getTokenBySymbol('ETH');
+      const defaultTokenOut = getTokenBySymbol('USDC');
       setTokenIn(defaultTokenIn as Token);
       setTokenOut(defaultTokenOut as Token);
     }
   }, [tokens]);
 
-  const [amountIn, setAmountIn] = useState("");
-  const [amountOut, setAmountOut] = useState("");
+  const [amountIn, setAmountIn] = useState('');
+  const [amountOut, setAmountOut] = useState('');
   const [isOutput, setIsOutput] = useState(false);
   const [slippage, setSlippage] = useState(0.5); // 0.5% default slippage
   const [deadline, setDeadline] = useState(15); // 15 minutes default deadline
@@ -42,12 +42,11 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isMulitiCallOn, setIsMulitiCallOn] = useState(false);
 
-  const [balanceIn, setBalanceIn] = useState("0");
-  const [balanceOut, setBalanceOut] = useState("0");
+  const [balanceIn, setBalanceIn] = useState('0');
+  const [balanceOut, setBalanceOut] = useState('0');
   const [decimalsIn, setDecimalsIn] = useState(6);
   const [decimalsOut, setDecimalsOut] = useState(18);
-  const [allowanceIn, setAllowanceIn] = useState("0");
-
+  const [allowanceIn, setAllowanceIn] = useState('0');
 
   const { exactInputSingle, exactOutputSingle, multicall, contract } = useSwapRouter(signer);
   const { quoteExactInputSingle, quoteExactOutputSingle } = useQuote(signer);
@@ -59,10 +58,7 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
     approve: approveTokenIn,
     getDecimal: getDecimalTokenIn,
   } = useERC20(signer);
-  const {
-    isInitialized: isERC20InitializedB,
-    getDecimal: getDecimalTokenOut,
-  } = useERC20(signer);
+  const { isInitialized: isERC20InitializedB, getDecimal: getDecimalTokenOut } = useERC20(signer);
   // const {getFee,isPoolInitialized,initializePool} = usePool(signer);
 
   // Handle token switch
@@ -75,16 +71,12 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
     }
   };
 
-
-
   // Handle amount in change
   const handleAmountInChange = async (value: string) => {
     setAmountIn(value);
     setIsOutput(false);
     if (value && parseFloat(value) > 0 && tokenIn && tokenOut) {
       try {
-
-
         const quote = await quoteExactInputSingle(
           tokenIn.id,
           tokenOut.id,
@@ -92,9 +84,9 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
           value,
           '0',
           tokenIn.decimals,
-          tokenOut.decimals
+          tokenOut.decimals,
         );
-        setAmountOut(quote?.amountOut || "0");
+        setAmountOut(quote?.amountOut || '0');
       } catch (err) {
         console.error('Error getting quote:', err);
         setAmountOut('');
@@ -110,8 +102,6 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
     setIsOutput(true);
     if (value && parseFloat(value) > 0 && tokenIn && tokenOut) {
       try {
-
-
         const quote = await quoteExactOutputSingle(
           tokenIn.id,
           tokenOut.id,
@@ -119,9 +109,9 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
           value,
           '0',
           tokenIn.decimals,
-          tokenOut.decimals
+          tokenOut.decimals,
         );
-        setAmountIn(quote?.amountIn || "0");
+        setAmountIn(quote?.amountIn || '0');
       } catch (err) {
         console.error('Error getting quote:', err);
         setAmountIn('');
@@ -131,7 +121,6 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
     }
   };
 
-
   // Format balance for display
   const formatDisplayBalance = (balance: string, decimals: number): string => {
     try {
@@ -139,7 +128,7 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
       return parseFloat(formatted).toFixed(4);
     } catch (e) {
       console.error('Error formatting balance:', e);
-      return "0";
+      return '0';
     }
   };
 
@@ -147,7 +136,6 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
   const isInsufficientBalance = useCallback(() => {
     if (!amountIn || !balanceIn || !tokenIn) return false;
     try {
-
       const amountInWei = ethers.parseUnits(amountIn, Number(tokenIn.decimals));
       return BigInt(balanceIn) < amountInWei;
     } catch (e) {
@@ -183,9 +171,9 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
 
       // Fetch balances
       const [balanceA, allowanceA, balanceB] = await Promise.all([
-        getBalanceIn(signerAddress, tokenIn.id,tokenIn.symbol),
-        getAllowanceIn(signerAddress, SWAP_ROUTER_ADDRESS, tokenIn.id,tokenIn.symbol),
-        getBalanceOut(signerAddress, tokenOut.id,tokenOut.symbol),
+        getBalanceIn(signerAddress, tokenIn.id, tokenIn.symbol),
+        getAllowanceIn(signerAddress, SWAP_ROUTER_ADDRESS, tokenIn.id, tokenIn.symbol),
+        getBalanceOut(signerAddress, tokenOut.id, tokenOut.symbol),
       ]);
 
       setBalanceIn(balanceA.toString());
@@ -193,10 +181,9 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
       setAllowanceIn(allowanceA.toString());
       setDecimalsIn(await getDecimalTokenIn(tokenIn.id));
       setDecimalsOut(await getDecimalTokenOut(tokenOut.id));
-
     } catch (error) {
-      console.error("Error fetching balances and allowances:", error);
-      toast.error("Failed to fetch token data");
+      console.error('Error fetching balances and allowances:', error);
+      toast.error('Failed to fetch token data');
     } finally {
       // Loading state handled by isProcessing
     }
@@ -278,7 +265,7 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
 
   const handleApproveTokenIn = async () => {
     if (!amountIn || !signer || !tokenIn) {
-      toast.error("Please connect your wallet, select a token, and enter an amount");
+      toast.error('Please connect your wallet, select a token, and enter an amount');
       return;
     }
 
@@ -287,18 +274,14 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
       const decimals = await getDecimalTokenIn(tokenIn.id);
       const amountInWei = ethers.parseUnits(amountIn, decimals);
 
-      await approveTokenIn(
-        SWAP_ROUTER_ADDRESS,
-        amountInWei,
-        tokenIn.id,
-      );
-      toast.success("Token approved successfully");
+      await approveTokenIn(SWAP_ROUTER_ADDRESS, amountInWei, tokenIn.id);
+      toast.success('Token approved successfully');
 
       // Refresh balances and allowances
       await fetchBalancesAndAllowances();
     } catch (error) {
-      console.error("Approval failed:", error);
-      toast.error("Failed to approve token");
+      console.error('Approval failed:', error);
+      toast.error('Failed to approve token');
     } finally {
       setIsSwapping(false);
     }
@@ -307,8 +290,8 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
   const handleTokenAChange = (newToken: Token) => {
     if (!newToken) return;
     setTokenIn(newToken);
-    setAmountIn("");
-    setAmountOut("");
+    setAmountIn('');
+    setAmountOut('');
   };
 
   // const handleTokenBChange = (newToken: Token) => {
@@ -326,7 +309,7 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
       return;
     }
     if (!tokenIn || !tokenOut || !amountIn || !amountOut || !signer) {
-      toast.error("Please fill in all fields and connect your wallet");
+      toast.error('Please fill in all fields and connect your wallet');
       return;
     }
 
@@ -346,21 +329,18 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
 
       // Check and approve tokenIn if needed
       let allowanceIn;
-      if (tokenIn.symbol !== "ETH")
+      if (tokenIn.symbol !== 'ETH')
         allowanceIn = await getAllowanceIn(
           signerAddress,
           SWAP_ROUTER_ADDRESS,
-          tokenIn.id,tokenIn.symbol
+          tokenIn.id,
+          tokenIn.symbol,
         );
       else allowanceIn = amountInWei;
       if (!isMulitiCallOn && BigInt(allowanceIn) < amountInWei) {
-        await approveTokenIn(
-          SWAP_ROUTER_ADDRESS,
-          amountInWei,
-          tokenIn.id,
-        );
+        await approveTokenIn(SWAP_ROUTER_ADDRESS, amountInWei, tokenIn.id);
 
-        toast.success("Token approved, please confirm swap");
+        toast.success('Token approved, please confirm swap');
         return;
       }
 
@@ -370,17 +350,15 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
 
       // Execute swap
       /// check with eth
-      let tx
+      let tx;
 
-  const value = tokenIn.symbol === "ETH" ? amountInWei : 0n;
+      const value = tokenIn.symbol === 'ETH' ? amountInWei : 0n;
       if (isMulitiCallOn) {
-        
         if (isOutput) {
           // exactOutputSingle encoded call
-          if (!contract) throw new Error("Contract not initialized");
-          const exactOutputData = contract.interface.encodeFunctionData(
-            "exactOutputSingle",
-            [{
+          if (!contract) throw new Error('Contract not initialized');
+          const exactOutputData = contract.interface.encodeFunctionData('exactOutputSingle', [
+            {
               tokenIn: tokenIn.id,
               tokenOut: tokenOut.id,
               fee: feeTier,
@@ -389,16 +367,15 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
               amountOut: minAmountOut,
               amountInMaximum: amountInWei,
               sqrtPriceLimitX96: 0n,
-            }]
-          );
-          
+            },
+          ]);
+
           tx = await multicall([exactOutputData], value);
         } else {
           // exactInputSingle encoded call
-          if (!contract) throw new Error("Contract not initialized");
-          const exactInputData = contract.interface.encodeFunctionData(
-            "exactInputSingle",
-            [{
+          if (!contract) throw new Error('Contract not initialized');
+          const exactInputData = contract.interface.encodeFunctionData('exactInputSingle', [
+            {
               tokenIn: tokenIn.id,
               tokenOut: tokenOut.id,
               fee: feeTier,
@@ -407,58 +384,58 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
               amountIn: amountInWei,
               amountOutMinimum: amountOutWei,
               sqrtPriceLimitX96: 0n,
-            }]
-          );
-    
-          tx = await multicall([exactInputData],value);
+            },
+          ]);
+
+          tx = await multicall([exactInputData], value);
         }
 
-
-        console.log("muliticall is on")
-
+        console.log('muliticall is on');
       } else {
         if (isOutput) {
-          tx = await exactOutputSingle({
-            tokenIn: tokenIn.id,
-            tokenOut: tokenOut.id,
-            fee: feeTier,
-            recipient: signerAddress,
-            deadline: Math.floor(Date.now() / 1000) + deadline * 60, // 15 minutes from now
-            amountOut: minAmountOut,
-            amountInMaximum: amountInWei,
-            sqrtPriceLimitX96: 0n,
-
-          }, value);
+          tx = await exactOutputSingle(
+            {
+              tokenIn: tokenIn.id,
+              tokenOut: tokenOut.id,
+              fee: feeTier,
+              recipient: signerAddress,
+              deadline: Math.floor(Date.now() / 1000) + deadline * 60, // 15 minutes from now
+              amountOut: minAmountOut,
+              amountInMaximum: amountInWei,
+              sqrtPriceLimitX96: 0n,
+            },
+            value,
+          );
         } else {
-          tx = await exactInputSingle({
-            tokenIn: tokenIn.id,
-            tokenOut: tokenOut.id,
-            fee: feeTier,
-            recipient: signerAddress,
-            deadline: Math.floor(Date.now() / 1000) + deadline * 60, // 15 minutes from now
-            amountIn: amountInWei,
-            amountOutMinimum: minAmountOut,
-            sqrtPriceLimitX96: 0n,
-
-          }, value);
+          tx = await exactInputSingle(
+            {
+              tokenIn: tokenIn.id,
+              tokenOut: tokenOut.id,
+              fee: feeTier,
+              recipient: signerAddress,
+              deadline: Math.floor(Date.now() / 1000) + deadline * 60, // 15 minutes from now
+              amountIn: amountInWei,
+              amountOutMinimum: minAmountOut,
+              sqrtPriceLimitX96: 0n,
+            },
+            value,
+          );
         }
       }
-      console.log("Transaction hash:", tx);
-      toast.success("Swap executed successfully");
+      console.log('Transaction hash:', tx);
+      toast.success('Swap executed successfully');
 
       // Refresh data after successful swap
       await fetchBalancesAndAllowances();
-      setAmountIn("");
-      setAmountOut("");
+      setAmountIn('');
+      setAmountOut('');
     } catch (err: any) {
-      console.error("Swap failed:", err);
-      toast.error(`Swap failed: ${err.message || "Unknown error"}`);
+      console.error('Swap failed:', err);
+      toast.error(`Swap failed: ${err.message || 'Unknown error'}`);
     } finally {
       setIsSwapping(false);
     }
   };
-
-
 
   return (
     <div className="max-w-md mx-auto">
@@ -541,21 +518,14 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
                 placeholder="0.0"
                 value={amountOut}
                 onChange={(e) => handleAmountOutChange(e.target.value)}
-
               />
               <div className="w-40">
-                <TokenSelector
-                  selectedToken={tokenOut}
-                  onSelect={setTokenOut as any}
-                />
+                <TokenSelector selectedToken={tokenOut} onSelect={setTokenOut as any} />
               </div>
             </div>
           </div>
         </div>
-
-
       </div>
-
 
       <div className="flex space-x-2">
         {!isInsufficientBalance() ? (
@@ -564,10 +534,11 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
               type="button"
               onClick={handleApproveTokenIn}
               disabled={isSwapping || !signer || !amountIn || parseFloat(amountIn) <= 0}
-              className={`w-full py-3 px-4 rounded-xl font-medium text-white ${isSwapping || !signer || !amountIn || parseFloat(amountIn) <= 0
+              className={`w-full py-3 px-4 rounded-xl font-medium text-white ${
+                isSwapping || !signer || !amountIn || parseFloat(amountIn) <= 0
                   ? 'bg-gray-300 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700'
-                }`}
+              }`}
             >
               {isSwapping ? 'Approving...' : 'Approve'}
             </button>
@@ -576,10 +547,11 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
               type="button"
               onClick={handleSwap}
               disabled={isSwapping || !signer || !amountIn || parseFloat(amountIn) <= 0}
-              className={`w-full py-3 px-4 rounded-xl font-medium text-white ${isSwapping || !signer || !amountIn || parseFloat(amountIn) <= 0
+              className={`w-full py-3 px-4 rounded-xl font-medium text-white ${
+                isSwapping || !signer || !amountIn || parseFloat(amountIn) <= 0
                   ? 'bg-gray-300 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700'
-                }`}
+              }`}
             >
               {isSwapping ? 'Swapping...' : 'Swap'}
             </button>
@@ -604,8 +576,5 @@ export const SwapTab = ({ signer }: SwapTabProps) => {
         </div>
       )}
     </div>
-
-
-
   );
 };

@@ -13,43 +13,40 @@ interface TokenSelectorProps {
 }
 
 // TokenSelector component
-export function TokenSelector({ 
-  selectedToken, 
-  onSelect, 
+export function TokenSelector({
+  selectedToken,
+  onSelect,
   excludeToken = null,
   label = 'Select Token',
-  className = '' ,
-  signer = null
+  className = '',
+  signer = null,
 }: TokenSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const {getSymbol,getName,getDecimal} = useERC20(signer);
+  const { getSymbol, getName, getDecimal } = useERC20(signer);
 
-  
   const { tokens, isLoading } = useTokens();
 
   const fetchNameAndSymbol = async (address: string) => {
     try {
       const symbol = await getSymbol(address);
       const name = await getName(address);
-      const  decimals = await getDecimal(address);
-      return {name,symbol,decimals};
+      const decimals = await getDecimal(address);
+      return { name, symbol, decimals };
     } catch (err) {
-      console.error("Error fetching symbol:", err);
-      
-      return {name: 'Unknown Token', symbol: 'UNKNOWN',decimals:18};
+      console.error('Error fetching symbol:', err);
+
+      return { name: 'Unknown Token', symbol: 'UNKNOWN', decimals: 18 };
     }
   };
 
   useEffect(() => {
     const checkAndAddToken = async () => {
       if (searchTerm.startsWith('0x') && searchTerm.length === 42) {
-        const exists = tokens?.some(
-          token => token.id.toLowerCase() === searchTerm.toLowerCase()
-        );
-        debugger
+        const exists = tokens?.some((token) => token.id.toLowerCase() === searchTerm.toLowerCase());
+        
         if (!exists) {
-          const {name,symbol,decimals} = await fetchNameAndSymbol(searchTerm);
+          const { name, symbol, decimals } = await fetchNameAndSymbol(searchTerm);
           const newToken: Token = {
             id: searchTerm,
             symbol: symbol || 'UNKNOWN',
@@ -63,32 +60,30 @@ export function TokenSelector({
     };
     checkAndAddToken();
   }, [searchTerm, tokens]);
-  
+
   // Filter out the excluded token and apply search filter
   const filteredTokens = useMemo(() => {
     // First filter out the excluded token if provided
     let result = tokens || [];
-    
+
     if (excludeToken) {
-      result = result?.filter(
-        token => token.id.toLowerCase() !== excludeToken.id.toLowerCase()
-      );
+      result = result?.filter((token) => token.id.toLowerCase() !== excludeToken.id.toLowerCase());
     }
-    
+
     // Then apply search filter if search term exists
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
       result = result?.filter(
-        token =>
+        (token) =>
           token.name.toLowerCase().includes(searchLower) ||
           token.symbol.toLowerCase().includes(searchLower) ||
-          token.id.toLowerCase().includes(searchLower)
+          token.id.toLowerCase().includes(searchLower),
       );
     }
-    
+
     return result;
   }, [tokens, excludeToken, searchTerm]);
-  
+
   const handleTokenSelect = (token: Token) => {
     onSelect(token);
     setIsOpen(false);
@@ -113,14 +108,15 @@ export function TokenSelector({
         <div className="flex items-center space-x-2">
           {selectedToken ? (
             <>
-              <img 
-                src={selectedToken.logoURI} 
-                alt={selectedToken.symbol} 
-                className="w-6 h-6 rounded-full" 
+              <img
+                src={selectedToken.logoURI}
+                alt={selectedToken.symbol}
+                className="w-6 h-6 rounded-full"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.onerror = null;
-                  target.src = 'https://tokens.1inch.io/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png';
+                  target.src =
+                    'https://tokens.1inch.io/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png';
                 }}
               />
               <span className="font-medium text-gray-900 dark:text-white">
@@ -131,115 +127,110 @@ export function TokenSelector({
             <span className="text-gray-500 dark:text-gray-400">{label}</span>
           )}
         </div>
-        <svg 
-          className={`w-5 h-5 text-gray-500 transition-transform ${isOpen ? 'transform rotate-180' : ''}`} 
-          fill="none" 
-          viewBox="0 0 24 24" 
+        <svg
+          className={`w-5 h-5 text-gray-500 transition-transform ${isOpen ? 'transform rotate-180' : ''}`}
+          fill="none"
+          viewBox="0 0 24 24"
           stroke="currentColor"
           aria-hidden="true"
         >
-          <path 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            strokeWidth={2} 
-            d="M19 9l-7 7-7-7" 
-          />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-      
+
       {isOpen && (
-   <div 
-  className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden"
-  role="listbox"
-  aria-label="Token list"
->
-  <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-    <input
-      type="text"
-      placeholder="Search token name or paste address"
-      className="w-full p-2 text-sm bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-      onKeyDown={async (e) => {
-        if (e.key === 'Enter') {
-          if (searchTerm.startsWith('0x') && searchTerm.length === 42) {
-            const exists = tokens?.some(
-              (token) => token.id.toLowerCase() === searchTerm.toLowerCase()
-            );
-            let selected: Token | undefined;
+        <div
+          className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden"
+          role="listbox"
+          aria-label="Token list"
+        >
+          <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+            <input
+              type="text"
+              placeholder="Search token name or paste address"
+              className="w-full p-2 text-sm bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter') {
+                  if (searchTerm.startsWith('0x') && searchTerm.length === 42) {
+                    const exists = tokens?.some(
+                      (token) => token.id.toLowerCase() === searchTerm.toLowerCase(),
+                    );
+                    let selected: Token | undefined;
 
-            if (!exists) {
-              const { name, symbol } = await fetchNameAndSymbol(searchTerm);
-              const newToken: Token = {
-                id: searchTerm,
-                symbol: symbol || 'UNKNOWN',
-                name: name || 'Unknown Token',
-                decimals: 18,
-                logoURI: 'https://tokens.1inch.io/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png',
-              };
-              tokens?.unshift(newToken); // Add to the start
-              selected = newToken;
-            } else {
-              selected = tokens?.find(
-                (token) => token.id.toLowerCase() === searchTerm.toLowerCase()
-              );
-            }
+                    if (!exists) {
+                      const { name, symbol } = await fetchNameAndSymbol(searchTerm);
+                      const newToken: Token = {
+                        id: searchTerm,
+                        symbol: symbol || 'UNKNOWN',
+                        name: name || 'Unknown Token',
+                        decimals: 18,
+                        logoURI:
+                          'https://tokens.1inch.io/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png',
+                      };
+                      tokens?.unshift(newToken); // Add to the start
+                      selected = newToken;
+                    } else {
+                      selected = tokens?.find(
+                        (token) => token.id.toLowerCase() === searchTerm.toLowerCase(),
+                      );
+                    }
 
-            if (selected) handleTokenSelect(selected);
-            setSearchTerm('');
-          }
-        }
-      }}
-      autoFocus
-      aria-label="Search tokens"
-    />
-  </div>
+                    if (selected) handleTokenSelect(selected);
+                    setSearchTerm('');
+                  }
+                }
+              }}
+              autoFocus
+              aria-label="Search tokens"
+            />
+          </div>
 
-  <div className="max-h-60 overflow-y-auto">
-    {isLoading ? (
-      <div className="p-4 text-center text-gray-500 dark:text-gray-400">
-        Loading tokens...
-      </div>
-    ) : filteredTokens.length === 0 ? (
-      <div className="p-4 text-center text-gray-500 dark:text-gray-400">
-        {searchTerm ? 'No matching tokens found' : 'No tokens available'}
-      </div>
-    ) : (
-      <ul>
-        {filteredTokens.map((token) => (
-          <li key={token.id} role="option" aria-selected={selectedToken?.id === token.id}>
-            <button
-              type="button"
-              className="w-full flex items-center p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
-              onClick={() => handleTokenSelect(token)}
-            >
-              <img 
-                src={token.logoURI} 
-                alt="" 
-                className="w-6 h-6 rounded-full mr-3 flex-shrink-0"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.onerror = null;
-                  target.src = 'https://via.placeholder.com/24';
-                }}
-                aria-hidden="true"
-              />
-              <div className="min-w-0">
-                <div className="font-medium text-gray-900 dark:text-white truncate">
-                  {token.symbol}
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {token.name}
-                </div>
+          <div className="max-h-60 overflow-y-auto">
+            {isLoading ? (
+              <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                Loading tokens...
               </div>
-            </button>
-          </li>
-        ))}
-      </ul>
-    )}
-  </div>
-</div>
-
+            ) : filteredTokens.length === 0 ? (
+              <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                {searchTerm ? 'No matching tokens found' : 'No tokens available'}
+              </div>
+            ) : (
+              <ul>
+                {filteredTokens.map((token) => (
+                  <li key={token.id} role="option" aria-selected={selectedToken?.id === token.id}>
+                    <button
+                      type="button"
+                      className="w-full flex items-center p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                      onClick={() => handleTokenSelect(token)}
+                    >
+                      <img
+                        src={token.logoURI}
+                        alt=""
+                        className="w-6 h-6 rounded-full mr-3 flex-shrink-0"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.src = 'https://via.placeholder.com/24';
+                        }}
+                        aria-hidden="true"
+                      />
+                      <div className="min-w-0">
+                        <div className="font-medium text-gray-900 dark:text-white truncate">
+                          {token.symbol}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          {token.name}
+                        </div>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       )}
       {isOpen && (
         <div
@@ -252,6 +243,6 @@ export function TokenSelector({
       )}
     </div>
   );
-};
+}
 
 export default TokenSelector;
