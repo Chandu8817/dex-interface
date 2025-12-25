@@ -61,6 +61,7 @@ const TickRange: React.FC<TickRangeProps> = ({
       const range = Math.max(1, Math.round(Math.abs(Number(currentTick)) * 0.02));
       const lower = snapTick(Number(currentTick) - range, tickSpacing, true);
       const upper = snapTick(Number(currentTick) + range, tickSpacing, false);
+      debugger
       if (!tickLower) onTickLowerChange(lower.toString());
       if (!tickUpper) onTickUpperChange(upper.toString());
     }

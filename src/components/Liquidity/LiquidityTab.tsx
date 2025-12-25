@@ -366,7 +366,7 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
         recipient: signerAddress,
         deadline: Math.floor(Date.now() / 1000) + deadline * 60, // deadline minutes from now
       };
-
+debugger
       // Call the mint function with all required parameters
       let tx;
       if (isMulitiCallOn) {
@@ -607,6 +607,7 @@ export const LiquidityTab = ({ signer }: LiquidityTabProps) => {
         (BigInt(amountOutWei) * (10000n - slippageBasisPoints)) / 10000n,
         decimalsOut,
       );
+      debugger
       setAmountB(minAmountOut.toString());
     } catch (err) {
       // console.error("Failed to get quote:", err);
